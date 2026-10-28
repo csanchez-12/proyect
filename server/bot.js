@@ -1,64 +1,43 @@
 import { Bot, InlineKeyboard } from "grammy";
 let screaming = false;
+
 const bot = new Bot(process.env.BOT_TOKEN);
 
-// This function handles the /scream command
+bot.command("start", async (ctx) => {
+  await ctx.reply(
+    "👋 ¡Hola! Bienvenido al bot.\n\n" +
+    "Comandos disponibles:\n" +
+    "/scream - Activar modo grito (mayúsculas)\n" +
+    "/whisper - Desactivar modo grito\n" +
+    "/menu - Mostrar menú interactivo\n\n" +
+    `🆔 Tu chat_id: ${ctx.chat.id}`
+  );
+});   
+
 bot.command("scream", () => {
   screaming = true;
 });
 
-// This function handles /whisper command
 bot.command("whisper", () => {
   screaming = false;
 });
 
-const firstMenu = "<b>Menu 1</b>\n\nA beautiful menu with a shiny inline button.";
-const secondMenu = "<b>Menu 2</b>\n\nA better menu with even more shiny inline buttons.";
-
-const nextButton = "Next";
-const backButton = "Back";
-const tutorialButton = "Tutorial";
-
-const firstMenuMarkup = new InlineKeyboard().text(nextButton, nextButton);
-
-const secondMenuMarkup = new InlineKeyboard()
-  .text(backButton, backButton)
-  .text(tutorialButton, "https://core.telegram.org/bots/tutorial");
-
 bot.command("menu", async (ctx) => {
-  await ctx.reply(firstMenu, {
-    parse_mode: "HTML",
-    reply_markup: firstMenuMarkup,
-  });
+  await ctx.reply("<b>Menu 1</b>", { parse_mode: "HTML" });
 });
 
-bot.callbackQuery(backButton, async (ctx) => {
-  await ctx.editMessageText(firstMenu, {
-    reply_markup: firstMenuMarkup,
-    parse_mode: "HTML",
-  });
-});
-
-bot.callbackQuery(nextButton, async (ctx) => {
-  await ctx.editMessageText(secondMenu, {
-    reply_markup: secondMenuMarkup,
-    parse_mode: "HTML",
-  });
-});
-
-bot.on("message", async (ctx) => {
+bot.on("message", (ctx) => {
+  const msgText = ctx.message.text || "(sticker, media, etc.)";
   console.log(
-    `${ctx.from?.first_name} wrote ${
-      "text" in ctx.message ? ctx.message.text : ""
-    }`,
+    `${ctx.from?.first_name} escribió: ${msgText}`
   );
 
   if (screaming && ctx.message.text) {
-    await ctx.reply(ctx.message.text.toUpperCase(), {
+    ctx.reply(ctx.message.text.toUpperCase(), {
       entities: ctx.message.entities,
     });
   } else {
-    await ctx.copyMessage(ctx.message.chat.id);
+    ctx.copyMessage(ctx.message.chat.id);
   }
 });
 
