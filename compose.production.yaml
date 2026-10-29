@@ -1,6 +1,6 @@
 services:
   frontend:
-    image: ghcr.io/TU_USUARIO_GITHUB/addicompleto-frontend:latest
+    image: ghcr.io/csanchez-12/addicompleto-frontend:latest
     ports:
       - "80:80"
     restart: unless-stopped
@@ -14,7 +14,7 @@ services:
       start_period: 10s
 
   backend:
-    image: ghcr.io/TU_USUARIO_GITHUB/addicompleto-backend:latest
+    image: ghcr.io/csanchez-12/addicompleto-backend:latest
     environment:
       BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN no definido}
       CHAT_ID: ${CHAT_ID:?CHAT_ID no definido}
