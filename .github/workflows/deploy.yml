@@ -57,8 +57,8 @@ jobs:
       - name: Build and push backend
         uses: docker/build-push-action@v6
         with:
-          context: ./backend
-          file: ./backend/Dockerfile
+          context: ./server
+          file: ./server/Dockerfile
           push: true
           tags: |
             ${{ steps.images.outputs.backend }}:latest
@@ -95,7 +95,7 @@ jobs:
           ssh -i ~/.ssh/deploy_key "$DO_USER@$DO_HOST" '
             set -e
             cd /opt/addicompleto
-            docker compose -f compose.production.yaml pull
-            docker compose -f compose.production.yaml up -d --remove-orphans
+            docker compose --env-file .env -f compose.production.yaml pull
+            docker compose --env-file .env -f compose.production.yaml up -d --remove-orphans
             docker image prune -f
           '
