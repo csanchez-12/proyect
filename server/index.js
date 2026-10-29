@@ -19,13 +19,13 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 app.post('/telegram/send', async (req, res) => {
-  const { text, chatId } = req.body;
+  const { text } = req.body;
 
   if (!text) return res.status(400).json({ error: 'Texto requerido' });
-  if (!chatId) return res.status(400).json({ error: 'chatId requerido' });
+  // if (!chatId) return res.status(400).json({ error: 'chatId requerido' });
 
   try {
-    await bot.api.sendMessage(chatId, text, { parse_mode: "HTML" });
+    await bot.api.sendMessage(process.env.CHAT_ID, text, { parse_mode: "HTML" });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
