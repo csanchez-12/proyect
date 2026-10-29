@@ -1,0 +1,35 @@
+services:
+  frontend:
+    image: ghcr.io/TU_USUARIO_GITHUB/addicompleto-frontend:latest
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  backend:
+    image: ghcr.io/TU_USUARIO_GITHUB/addicompleto-backend:latest
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN no definido}
+      CHAT_ID: ${CHAT_ID:?CHAT_ID no definido}
+    expose:
+      - "3000"
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=2", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  app-network:
+    driver: bridge
