@@ -1,0 +1,101 @@
+
+name: Build and deploy addicompleto
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare image names
+        id: images
+        shell: bash
+        run: |
+          OWNER="$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          echo "frontend=ghcr.io/$OWNER/addicompleto-frontend" >> "$GITHUB_OUTPUT"
+          echo "backend=ghcr.io/$OWNER/addicompleto-backend" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.images.outputs.frontend }}:latest
+            ${{ steps.images.outputs.frontend }}:${{ github.sha }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.images.outputs.backend }}:latest
+            ${{ steps.images.outputs.backend }}:${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DO_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DO_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Copy production Compose file
+        env:
+          DO_HOST: ${{ secrets.DO_HOST }}
+          DO_USER: ${{ secrets.DO_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$DO_USER@$DO_HOST" \
+            'mkdir -p /opt/addicompleto'
+          scp -i ~/.ssh/deploy_key \
+            compose.production.yaml \
+            "$DO_USER@$DO_HOST:/opt/addicompleto/compose.production.yaml"
+
+      - name: Deploy
+        env:
+          DO_HOST: ${{ secrets.DO_HOST }}
+          DO_USER: ${{ secrets.DO_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$DO_USER@$DO_HOST" '
+            set -e
+            cd /opt/addicompleto
+            docker compose -f compose.production.yaml pull
+            docker compose -f compose.production.yaml up -d --remove-orphans
+            docker image prune -f
+          '
