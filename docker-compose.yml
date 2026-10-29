@@ -21,6 +21,9 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+    environment:
+      - BOT_TOKEN
+      - CHAT_ID
     ports:
       - "3000:3000"
     restart: unless-stopped
