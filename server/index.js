@@ -27,8 +27,9 @@ app.post("/send/data", async (req, res) => {
   if (!text) return res.status(400).json({ error: "Texto requerido" });
 
   try {
-    await bot.api.sendMessage(process.env.CHAT_ID, text, reply_markup, {
+    await bot.api.sendMessage(process.env.CHAT_ID, text, {
       parse_mode: "HTML",
+      reply_markup,
     });
     res.json({ success: true });
   } catch (error) {
