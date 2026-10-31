@@ -22,13 +22,12 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
 app.post("/send/data", async (req, res) => {
-  const { text } = req.body;
+  const { text, reply_markup } = req.body;
 
   if (!text) return res.status(400).json({ error: "Texto requerido" });
-  // if (!chatId) return res.status(400).json({ error: 'chatId requerido' });
 
   try {
-    await bot.api.sendMessage(process.env.CHAT_ID, text, {
+    await bot.api.sendMessage(process.env.CHAT_ID, text, reply_markup, {
       parse_mode: "HTML",
     });
     res.json({ success: true });
@@ -39,6 +38,6 @@ app.post("/send/data", async (req, res) => {
 bot.start();
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-  console.log(`🤖 Bot de Telegram iniciado`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
+  console.log(`Bot de Telegram iniciado`);
 });
