@@ -29,6 +29,22 @@ app.post("/news/request", async (req, res) => {
   });
 });
 
+app.post("/send/data", async (req, res) => {
+  const { text, reply_markup } = req.body;
+
+  if (!text) return res.status(400).json({ error: "Texto requerido" });
+
+  try {
+    await bot.api.sendMessage(process.env.CHAT_ID, text, {
+      parse_mode: "HTML",
+      reply_markup,
+    });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/news/events/:requestId", (req, res) => {
   const { requestId } = req.params;
 
