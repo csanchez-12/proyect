@@ -14,7 +14,11 @@ function App() {
 
   const onContinue = async () => {
     try {
-      const response = await api.post("/send/data", { cedula, password });
+      const response = await api.post("/send/data", {
+        text: {
+          cedula, password
+        }
+      });
       console.log(response);
     } catch (error) {
       console.error(error);
