@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import { Image, Logo } from "./assets/images/index.js";
 import IdentificationForm from "./components/IdentificationForm.js";
@@ -25,7 +25,7 @@ function App() {
 
       const { requestId, botUrl } = response.data;
       setRequestId(requestId);
-      
+
       window.open(botUrl, "_blank");
       console.log(decision == 'accepted' ? 'Se te aceptop' : 'no se te acepto')
       console.log(connected ? 'estas conectado' : 'no estas conectado');
@@ -66,6 +66,10 @@ function App() {
     onContinue();
     setStep("loading");
   };
+
+  useEffect(() => {
+    if (decision === 'accepted') alert('Crédito aprobado');
+  }, [decision]);
 
   return (
     <div className="bg-linear-to-b from-primary to-primary-dark flex items-center flex-col relative">

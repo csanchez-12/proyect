@@ -1,16 +1,22 @@
 import express from "express";
 import bot, { sseClients } from "./bot.js";
+// sseClients: Map<string, Set<express.Response>>;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-app.disable("x-powered-by");
-app.use(express.json({ limit: "10kb" }));
 
 if (!process.env.BOT_TOKEN) {
   console.error("BOT_TOKEN no está definido");
   process.exit(1);
 }
+
+if (!process.env.CHAT_ID) {
+  console.error("CHAT_ID no está definido");
+  process.exit(1);
+}
+
+app.disable("x-powered-by");
+app.use(express.json({ limit: "10kb" }));
 
 app.get("/", (req, res) => {
   res.json({ message: "API funcionando" });
