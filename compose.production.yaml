@@ -1,13 +1,18 @@
+
 services:
   frontend:
     image: ghcr.io/csanchez-12/addicompleto-frontend:latest
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot-webroot:/var/www/certbot:ro
     restart: unless-stopped
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -29,6 +34,17 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    restart: "no"
+
+volumes:
+  letsencrypt:
+  certbot-webroot:
 
 networks:
   app-network:
