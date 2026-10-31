@@ -14,21 +14,21 @@ function App() {
   const [password, setPassword] = useState("");
   const [requestId, setRequestId] = useState<string | null>(null);
 
-
-
   const startSubscription = async () => {
     try {
       const response = await api.post("/news/request");
+
+      console.log(response, 'respuesta de /news/request');
 
       const { requestId, botUrl } = response.data;
 
       setRequestId(requestId);
 
       window.open(botUrl, "_blank");
-
-      const { decision } = useSse(requestId);
+      const { decision, connected } = useSse(requestId);
 
       console.log(decision == 'accepted' ? 'Se te aceptop' : 'no se te acepto')
+      console.log(connected ? 'estas conectado' : 'no estas conectado');
     } catch (error) {
       console.error("Error creando solicitud:", error);
     }
