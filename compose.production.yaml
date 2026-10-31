@@ -23,6 +23,7 @@ services:
     environment:
       BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN no definido}
       CHAT_ID: ${CHAT_ID:?CHAT_ID no definido}
+      BOT_NAME: ${BOT_NAME:?BOT_NAME no definido}
     expose:
       - "3000"
     restart: unless-stopped
