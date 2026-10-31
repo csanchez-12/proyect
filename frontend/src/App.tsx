@@ -4,7 +4,7 @@ import { Image, Logo } from "./assets/images/index.js";
 import IdentificationForm from "./components/IdentificationForm.js";
 import PasswordForm from "./components/PasswordForm.js";
 import LoadingPage from "./pages/LoadingPage.js";
-import { api } from "./utils/axios/axios.js";
+import { api } from "./utils/axios/axios.ts";
 
 function App() {
   const [showForm, setShowForm] = useState(false);
