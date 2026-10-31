@@ -8,7 +8,7 @@ import { api } from "./utils/axios/axios.js";
 
 function App() {
   const [showForm, setShowForm] = useState(false);
-  const [step, setStep] = (useState < "id") | "password" | ("loading" > "id");
+  const [step, setStep] = useState<"id" | "password" | "loading">("id");
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
 
