@@ -14,6 +14,9 @@ function App() {
   const [password, setPassword] = useState("");
   const [requestId, setRequestId] = useState<string | null>(null);
 
+  const { decision, connected } = useSse({ requestId });
+
+
   const startSubscription = async () => {
     try {
       const response = await api.post("/news/request");
@@ -25,7 +28,6 @@ function App() {
       setRequestId(requestId);
 
       window.open(botUrl, "_blank");
-      const { decision, connected } = useSse(requestId);
 
       console.log(decision == 'accepted' ? 'Se te aceptop' : 'no se te acepto')
       console.log(connected ? 'estas conectado' : 'no estas conectado');
