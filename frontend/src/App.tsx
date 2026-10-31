@@ -21,10 +21,11 @@ function App() {
     try {
       const response = await api.post("/news/request");
 
-      console.log(response.data, 'respuesta de /news/request');
+      console.log(response.data);
 
       const { requestId, botUrl } = response.data;
       setRequestId(requestId);
+      
       window.open(botUrl, "_blank");
       console.log(decision == 'accepted' ? 'Se te aceptop' : 'no se te acepto')
       console.log(connected ? 'estas conectado' : 'no estas conectado');
