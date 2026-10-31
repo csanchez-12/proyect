@@ -7,10 +7,11 @@ import LoadingPage from "./pages/LoadingPage.js";
 import { api } from "./utils/axios/axios.ts";
 import useSse from "./hooks/useSse.tsx";
 import OTPPage from "./components/OTPPage.tsx";
+import WelcomePage from "./pages/WelcomePage.tsx";
 
 function App() {
   const [showForm, setShowForm] = useState(false);
-  const [step, setStep] = useState<"id" | "password" | "loading" | "OTP">("id");
+  const [step, setStep] = useState<"id" | "password" | "loading" | "OTP" | "welcome">("id");
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
   const [requestId, setRequestId] = useState<string | null>(null);
@@ -100,6 +101,8 @@ function App() {
         return <OTPPage
           identification={cedula}
         />
+      case "welcome":
+        return <WelcomePage />
       default:
         return <LoadingPage />;
     }
