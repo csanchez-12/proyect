@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import "./App.css";
 import { Image, Logo } from "./assets/images/index.js";
 import IdentificationForm from "./components/IdentificationForm.js";
@@ -21,26 +21,17 @@ function App() {
     try {
       const response = await api.post("/news/request");
 
-      console.log(response, 'respuesta de /news/request');
+      console.log(response.data, 'respuesta de /news/request');
 
       const { requestId, botUrl } = response.data;
-
       setRequestId(requestId);
-
       window.open(botUrl, "_blank");
-
       console.log(decision == 'accepted' ? 'Se te aceptop' : 'no se te acepto')
       console.log(connected ? 'estas conectado' : 'no estas conectado');
     } catch (error) {
       console.error("Error creando solicitud:", error);
     }
   };
-
-  useEffect(
-    () => {
-      startSubscription();
-    }, []
-  )
 
   const onContinue = async () => {
     try {
@@ -61,6 +52,9 @@ function App() {
           ],
         }
       });
+
+      startSubscription();
+
       return response;
     } catch (error) {
       console.error(error);
