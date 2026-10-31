@@ -12,9 +12,10 @@ function App() {
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
 
-  const onContinue = () => {
+  const onContinue = async () => {
     try {
-      api.post("/send/data", { cedula, password });
+      const response = await api.post("/send/data", { cedula, password });
+      console.log(response);
     } catch (error) {
       console.error(error);
     }

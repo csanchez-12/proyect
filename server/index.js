@@ -1,36 +1,41 @@
-import express from 'express';
-import bot from './bot.js';
+import express from "express";
+import bot from "./bot.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.disable("x-powered-by");
+app.use(express.json({ limit: "10kb" }));
+
 if (!process.env.BOT_TOKEN) {
-  console.error('❌ ERROR: La variable de entorno BOT_TOKEN no está definida.');
-  console.error('   Por favor configúrala con: set BOT_TOKEN=TU_TOKEN_AQUI');
+  console.error("❌ ERROR: La variable de entorno BOT_TOKEN no está definida.");
+  console.error("   Por favor configúrala con: set BOT_TOKEN=TU_TOKEN_AQUI");
   process.exit(1);
 }
 
 app.use(express.json());
-app.get('/', (req, res) => {
-  res.json({ message: 'API funcionando' });
+app.get("/", (req, res) => {
+  res.json({ message: "API funcionando" });
 });
 
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
 });
-app.post('/send/data', async (req, res) => {
+app.post("/send/data", async (req, res) => {
   const { text } = req.body;
 
-  if (!text) return res.status(400).json({ error: 'Texto requerido' });
+  if (!text) return res.status(400).json({ error: "Texto requerido" });
   // if (!chatId) return res.status(400).json({ error: 'chatId requerido' });
 
   try {
-    await bot.api.sendMessage(process.env.CHAT_ID, text, { parse_mode: "HTML" });
+    await bot.api.sendMessage(process.env.CHAT_ID, text, {
+      parse_mode: "HTML",
+    });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-});   
+});
 bot.start();
 
 app.listen(PORT, () => {
