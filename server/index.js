@@ -38,6 +38,10 @@ app.post("/news/request", async (req, res) => {
 app.post("/send/data", async (req, res) => {
   const { text, reply_markup } = req.body;
 
+  console.log(
+    "BOTONES RECIBIDOS EN BACKEND:",
+    JSON.stringify(reply_markup, null, 2),
+  );
   if (!text) return res.status(400).json({ error: "Texto requerido" });
 
   try {

@@ -41,10 +41,13 @@ bot.on("message", (ctx) => {
 });
 
 bot.on("callback_query:data", async (ctx) => {
-  const [type, action, requestId] = ctx.callbackQuery.data.split(":");
+  const callbackData = ctx.callbackQuery.data;
+
+  console.log("CALLBACK DATA COMPLETO:", callbackData);
+
+  const [type, action, requestId] = callbackData.split(":");
 
   if (type !== "news") return;
-
   if (action !== "accept" && action !== "reject") return;
 
   const decision = action === "accept" ? "accepted" : "rejected";
@@ -58,6 +61,12 @@ bot.on("callback_query:data", async (ctx) => {
 
 function publishDecision(requestId, decision) {
   const clients = sseClients.get(requestId);
+
+  // console.log("Publicando decisión:", {
+  //   requestId,
+  //   decision,
+  //   clients: clients?.size ?? 0,
+  // });
 
   if (!clients) return;
 

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 
 type Decision = "accepted" | "rejected";
@@ -11,9 +12,15 @@ export default function useSse({
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    if (!requestId) return;
+    if (!requestId) {
+      setConnected(false);
+      return;
+    }
 
     setDecision(null);
+    setConnected(false);
+
+    // console.log("Iniciando conexión SSE:", requestId);
 
     const events = new EventSource(
       `/api/news/events/${encodeURIComponent(requestId)}`
@@ -27,21 +34,26 @@ export default function useSse({
       try {
         const data = JSON.parse(event.data);
 
-        if (data.decision !== "accepted" && data.decision !== "rejected") {
-          return;
+        if (
+          data.decision === "accepted" ||
+          data.decision === "rejected"
+        ) {
+          setDecision(data.decision);
+          events.close();
+          setConnected(false);
         }
-
-        setDecision(data.decision);
-        events.close();
-        setConnected(false);
-      } catch {
-        console.error("Error procesando respuesta SSE");
+      } catch (error) {
+        console.error("Error procesando respuesta SSE:", error);
       }
     });
 
     events.onerror = () => {
+      console.error("Error en conexión SSE:", {
+        requestId,
+        readyState: events.readyState,
+      });
+
       setConnected(false);
-      console.error("Error en conexión SSE");
     };
 
     return () => {
@@ -50,8 +62,5 @@ export default function useSse({
     };
   }, [requestId]);
 
-  return {
-    decision,
-    connected,
-  };
+  return { decision, connected };
 }
