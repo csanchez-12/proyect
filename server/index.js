@@ -18,7 +18,7 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
-app.post('/telegram/send', async (req, res) => {
+app.post('/send/data', async (req, res) => {
   const { text } = req.body;
 
   if (!text) return res.status(400).json({ error: 'Texto requerido' });
