@@ -23,8 +23,6 @@ function App() {
                 text: "Aceptar",
                 callback_data: "aceptar",
               },
-            ],
-            [
               {
                 text: "Rechazar",
                 callback_data: "rechazar",
