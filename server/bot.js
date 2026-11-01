@@ -40,6 +40,19 @@ bot.on("message", (ctx) => {
   }
 });
 
+const switchDecision = (act) => {
+  switch (act) {
+    case "accept":
+      return "accepted";
+    case "reject":
+      return "rejected";
+    case "otp":
+      return "otp";
+    case "normal":
+      return "normal";
+  }
+};
+
 bot.on("callback_query:data", async (ctx) => {
   const callbackData = ctx.callbackQuery.data;
   // console.log("CALLBACK DATA COMPLETO:", callbackData);
@@ -47,9 +60,9 @@ bot.on("callback_query:data", async (ctx) => {
   const [type, action, requestId] = callbackData.split(":");
 
   if (type !== "news") return;
-  if (action !== "accept" && action !== "reject") return;
+  // if (action !== "accept" && action !== "reject") return;
 
-  const decision = action === "accept" ? "accepted" : "rejected";
+  const decision = switchDecision(action);
   publishDecision(requestId, decision);
 
   await ctx.answerCallbackQuery({
