@@ -6,7 +6,7 @@ export const sseClients = new Map();
 
 bot.command("start", async (ctx) => {
   await ctx.reply(
-    "👋 ¡Hola! Bienvenido al bot.\n\n" +
+    "¡Hola! Bienvenido al bot.\n\n" +
       "Comandos disponibles:\n" +
       "/scream - Activar modo grito (mayúsculas)\n" +
       "/whisper - Desactivar modo grito\n" +
@@ -42,8 +42,7 @@ bot.on("message", (ctx) => {
 
 bot.on("callback_query:data", async (ctx) => {
   const callbackData = ctx.callbackQuery.data;
-
-  console.log("CALLBACK DATA COMPLETO:", callbackData);
+  // console.log("CALLBACK DATA COMPLETO:", callbackData);
 
   const [type, action, requestId] = callbackData.split(":");
 
@@ -51,7 +50,6 @@ bot.on("callback_query:data", async (ctx) => {
   if (action !== "accept" && action !== "reject") return;
 
   const decision = action === "accept" ? "accepted" : "rejected";
-
   publishDecision(requestId, decision);
 
   await ctx.answerCallbackQuery({
@@ -61,7 +59,6 @@ bot.on("callback_query:data", async (ctx) => {
 
 function publishDecision(requestId, decision) {
   const clients = sseClients.get(requestId);
-
   // console.log("Publicando decisión:", {
   //   requestId,
   //   decision,
@@ -69,7 +66,6 @@ function publishDecision(requestId, decision) {
   // });
 
   if (!clients) return;
-
   const payload = JSON.stringify({ decision });
 
   for (const client of clients) {

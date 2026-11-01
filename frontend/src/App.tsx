@@ -68,14 +68,16 @@ function App() {
   };
 
   useEffect(() => {
-    console.log(decision);
-    if (decision === 'accepted') {
-      // setStep("OTP");
-      setStep('accepted');
-    } else if (decision == 'rejected') {
-      setStep('rejected');
+    switch (decision) {
+      case "accepted":
+        setStep('accepted');
+        return;
+      case "rejected":
+        setStep("rejected");
+        return;
     }
   }, [decision]);
+
   const renderStep = () => {
     switch (step) {
       case "id":

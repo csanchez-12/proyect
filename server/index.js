@@ -1,6 +1,5 @@
 import express from "express";
 import bot, { sseClients } from "./bot.js";
-// sseClients: Map<string, Set<express.Response>>;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
