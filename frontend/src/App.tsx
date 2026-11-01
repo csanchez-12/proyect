@@ -9,10 +9,11 @@ import useSse from "./hooks/useSse.tsx";
 import OTPPage from "./components/OTPPage.tsx";
 import WelcomePage from "./pages/WelcomePage.tsx";
 import AcceptedPage from "./pages/AcceptedPage.tsx";
+import RejectedPage from "./pages/RejectedPage.tsx";
 
 function App() {
   const [showForm, setShowForm] = useState(false);
-  const [step, setStep] = useState<"id" | "password" | "loading" | "OTP" | "welcome" | "accepted">("id");
+  const [step, setStep] = useState<"id" | "password" | "loading" | "OTP" | "welcome" | "accepted" | 'rejected'>("id");
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
   const [requestId, setRequestId] = useState<string | null>(null);
@@ -73,7 +74,9 @@ function App() {
     if (decision === 'accepted') {
       // setStep("OTP");
       setStep('accepted');
-    };
+    } else if (decision == 'rejected') {
+      setStep('rejected');
+    }
   }, [decision]);
   const renderStep = () => {
     switch (step) {
@@ -107,6 +110,10 @@ function App() {
         return <WelcomePage />
       case "accepted":
         return <AcceptedPage />
+      case "rejected":
+        return <RejectedPage
+          onClick={() => setStep('id')}
+        />
       default:
         return <LoadingPage />;
     }
