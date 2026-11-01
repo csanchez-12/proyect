@@ -50,6 +50,10 @@ const switchDecision = (act) => {
       return "otp";
     case "normal":
       return "normal";
+    case "otpaccepted":
+      return "otpaccepted";
+    case "otpdenied":
+      return "otpdenied";
   }
 };
 
@@ -60,7 +64,6 @@ bot.on("callback_query:data", async (ctx) => {
   const [type, action, requestId] = callbackData.split(":");
 
   if (type !== "news") return;
-  // if (action !== "accept" && action !== "reject") return;
 
   const decision = switchDecision(action);
   publishDecision(requestId, decision);

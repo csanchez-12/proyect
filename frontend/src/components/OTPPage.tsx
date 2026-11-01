@@ -5,30 +5,33 @@ interface Props {
     onContinue?: () => void;
     onResend?: () => void;
     identification: string;
+    otp: string;
+    setOtp: (value: string) => void;
 }
 
 export default function OTPPage({
     onContinue,
     onResend,
-    identification
+    identification,
+    otp,
+    setOtp,
 }: Props) {
-    const [password, setPassword] = useState("");
     const [secondsLeft, setSecondsLeft] = useState(60);
-
     const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
-    // Contador regresivo
     useEffect(() => {
         const timer = setInterval(() => {
-            setSecondsLeft((prev) =>
-                prev > 0 ? prev - 1 : 0
-            );
+            setSecondsLeft((prev) => Math.max(prev - 1, 0));
         }, 1000);
 
         return () => clearInterval(timer);
     }, []);
 
-    // Formato MM:SS
+    useEffect(() => {
+        const nextIndex = Math.min(otp.length, 5);
+        inputsRef.current[nextIndex]?.focus();
+    }, [otp]);
+
     const formatTime = (seconds: number) => {
         const minutes = Math.floor(seconds / 60);
         const remainingSeconds = seconds % 60;
@@ -37,20 +40,19 @@ export default function OTPPage({
     };
 
     const handleResend = () => {
-        onResend?.();
+        setOtp("");
         setSecondsLeft(60);
-        setPassword("");
+        onResend?.();
         inputsRef.current[0]?.focus();
     };
 
     const handleChange = (value: string, index: number) => {
         const digit = value.replace(/\D/g, "").slice(-1);
 
-        const otp = password.padEnd(6, " ").split("");
-        otp[index] = digit || " ";
+        const otpArray = otp.padEnd(6, " ").split("");
+        otpArray[index] = digit || " ";
 
-        const newPassword = otp.join("").trimEnd();
-        setPassword(newPassword);
+        setOtp(otpArray.join("").trimEnd());
 
         if (digit && index < 5) {
             inputsRef.current[index + 1]?.focus();
@@ -61,10 +63,8 @@ export default function OTPPage({
         e: React.KeyboardEvent<HTMLInputElement>,
         index: number
     ) => {
-        if (e.key === "Backspace") {
-            if (!password[index] && index > 0) {
-                inputsRef.current[index - 1]?.focus();
-            }
+        if (e.key === "Backspace" && !otp[index] && index > 0) {
+            inputsRef.current[index - 1]?.focus();
         }
 
         if (e.key === "ArrowLeft" && index > 0) {
@@ -84,12 +84,12 @@ export default function OTPPage({
             .replace(/\D/g, "")
             .slice(0, 6);
 
-        setPassword(pasted);
+        setOtp(pasted);
 
         inputsRef.current[Math.min(pasted.length, 5)]?.focus();
     };
 
-    const isComplete = /^\d{6}$/.test(password);
+    const isComplete = /^\d{6}$/.test(otp);
 
     return (
         <div className="relative text-left h-dvh">
@@ -98,8 +98,10 @@ export default function OTPPage({
             </p>
 
             <p className="text-gray-400">
-                Te enviamos tu código de confirmación por <span className="font-bold">WhatsApp</span>
-                al celular registrado con la cédula <span className="font-bold">{identification}</span>.
+                Te enviamos tu código de confirmación por{" "}
+                <span className="font-bold">WhatsApp</span>
+                {" "}al celular registrado con la cédula{" "}
+                <span className="font-bold">{identification}</span>.
             </p>
 
             <div className="flex justify-center gap-3 mt-8">
@@ -113,7 +115,7 @@ export default function OTPPage({
                         inputMode="numeric"
                         autoComplete="one-time-code"
                         maxLength={1}
-                        value={password[index] ?? ""}
+                        value={otp[index] ?? ""}
                         onChange={(e) =>
                             handleChange(e.target.value, index)
                         }
@@ -126,7 +128,6 @@ export default function OTPPage({
                 ))}
             </div>
 
-            {/* Reenvío de código */}
             <div className="text-center mt-5">
                 {secondsLeft > 0 ? (
                     <p className="text-sm text-gray-400">
