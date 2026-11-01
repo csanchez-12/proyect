@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 
-type Decision = "accepted" | "rejected";
+type Decision = "accepted" | "rejected" | "otp" | "normal";
 
 export default function useSse({
   requestId,
@@ -20,8 +20,6 @@ export default function useSse({
     setDecision(null);
     setConnected(false);
 
-    // console.log("Iniciando conexión SSE:", requestId);
-
     const events = new EventSource(
       `/api/news/events/${encodeURIComponent(requestId)}`
     );
@@ -33,15 +31,9 @@ export default function useSse({
     events.addEventListener("decision", (event) => {
       try {
         const data = JSON.parse(event.data);
-
-        if (
-          data.decision === "accepted" ||
-          data.decision === "rejected"
-        ) {
-          setDecision(data.decision);
-          events.close();
-          setConnected(false);
-        }
+        setDecision(data.decision);
+        events.close();
+        setConnected(false);
       } catch (error) {
         console.error("Error procesando respuesta SSE:", error);
       }

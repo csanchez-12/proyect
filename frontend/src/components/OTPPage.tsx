@@ -1,18 +1,47 @@
-
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface Props {
     onClose?: () => void;
     onContinue?: () => void;
+    onResend?: () => void;
     identification: string;
 }
 
 export default function OTPPage({
     onContinue,
+    onResend,
     identification
 }: Props) {
     const [password, setPassword] = useState("");
+    const [secondsLeft, setSecondsLeft] = useState(60);
+
     const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+
+    // Contador regresivo
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setSecondsLeft((prev) =>
+                prev > 0 ? prev - 1 : 0
+            );
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, []);
+
+    // Formato MM:SS
+    const formatTime = (seconds: number) => {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+
+        return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+    };
+
+    const handleResend = () => {
+        onResend?.();
+        setSecondsLeft(60);
+        setPassword("");
+        inputsRef.current[0]?.focus();
+    };
 
     const handleChange = (value: string, index: number) => {
         const digit = value.replace(/\D/g, "").slice(-1);
@@ -64,9 +93,13 @@ export default function OTPPage({
 
     return (
         <div className="relative text-left h-dvh">
-            <p>
-                Te enviamos tu código de confirmación por WhatsApp
-                al celular registrado con la cédula {identification}
+            <p className="text-2xl font-bold">
+                Ingresa tu código
+            </p>
+
+            <p className="text-gray-400">
+                Te enviamos tu código de confirmación por <span className="font-bold">WhatsApp</span>
+                al celular registrado con la cédula <span className="font-bold">{identification}</span>.
             </p>
 
             <div className="flex justify-center gap-3 mt-8">
@@ -91,6 +124,26 @@ export default function OTPPage({
                         className="w-11 h-14 text-center text-xl font-bold border border-gray-300 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                 ))}
+            </div>
+
+            {/* Reenvío de código */}
+            <div className="text-center mt-5">
+                {secondsLeft > 0 ? (
+                    <p className="text-sm text-gray-400">
+                        ¿No recibiste el código? Reenviar en{" "}
+                        <span className="font-bold text-primary tabular-nums">
+                            {formatTime(secondsLeft)}
+                        </span>
+                    </p>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={handleResend}
+                        className="text-sm font-bold text-primary hover:text-primary-dark cursor-pointer"
+                    >
+                        Reenviar código
+                    </button>
+                )}
             </div>
 
             <button

