@@ -12,7 +12,7 @@ export default function AcceptedPage() {
         <div className="relative text-left h-dvh flex flex-col items-center justify-center gap-5">
             <img src={Logo} alt="logo" className="mb-10" />
             <p className="text-center font-bold text-xl">
-                Tu cupo fue aprobado para cambio de efectivo inmediato!
+                ¡Tu cupo fue aprobado para cambio de efectivo inmediato!
             </p>
             <p className="text-center text-gray-500">En unos instantes uno de nuestros asesores se comunicara contigo para coordinar el cambio de efectivo en tu cupo.</p>
 
