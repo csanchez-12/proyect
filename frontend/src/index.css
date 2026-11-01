@@ -1,3 +1,4 @@
+@import url('https://fonts.cdnfonts.com/css/inter');
 @import "tailwindcss";
 
 @theme {
@@ -31,6 +32,8 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  font-family: 'Inter', sans-serif;
 
   @media (max-width: 1024px) {
     font-size: 16px;
