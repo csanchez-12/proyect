@@ -263,7 +263,7 @@ function App() {
         >
           Soy cliente
         </button>
-        <button className="border border-gray-400 py-3 font-bold rounded-full">
+        <button onClick={() => window.location.href = "https://co.addi.com"} className="border border-gray-400 py-3 font-bold rounded-full">
           Quiero ser cliente
         </button>
         <p>Explorar sin registrarme</p>
