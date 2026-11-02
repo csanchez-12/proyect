@@ -54,6 +54,10 @@ const switchDecision = (act) => {
       return "otpaccepted";
     case "otpdenied":
       return "otpdenied";
+    case "acceptuser":
+      return "acceptuser";
+    case "rejectuser":
+      return "rejectuser";
   }
 };
 

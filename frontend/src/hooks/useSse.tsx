@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 
-type Decision = "accepted" | "rejected" | "otp" | "normal" | "otpaccepted" | "otpdenied";
+type Decision = "accepted" | "rejected" | "otp" | "normal" | "otpaccepted" | "otpdenied" | "acceptuser" | "rejectuser";
 
 export default function useSse({
   requestId,
