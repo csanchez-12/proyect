@@ -32,8 +32,8 @@ export default function useSse({
       try {
         const data = JSON.parse(event.data);
         setDecision(data.decision);
-        events.close();
-        setConnected(false);
+        // events.close();
+        // setConnected(false);
       } catch (error) {
         console.error("Error procesando respuesta SSE:", error);
       }

