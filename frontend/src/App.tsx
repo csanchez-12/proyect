@@ -86,6 +86,14 @@ function App() {
         setOtp('');
         setStep('OTP');
         return;
+      case "otpaccepted":
+        setStep('accepted');
+        return;
+      case "normal":
+        setStep('accepted')
+        return;
+      default:
+        null
     }
   }, [decision]);
 
