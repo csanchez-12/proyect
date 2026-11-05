@@ -9,10 +9,10 @@ interface Props {
 
 export default function PasswordForm({ onClose, onContinue, password, setPassword }: Props) {
     return (
-        <div className="relative text-left h-dvh">
+        <div className="relative text-left min-h-dvh min-w-0 overflow-y-auto overflow-x-hidden pb-24">
             <button onClick={onClose} className='absolute top-0 right-0 text-primary'>✕</button>
-            <p className="font-bold text-2xl">Ingresa tu contraseña</p>
-            <p>Ingresa tu contraseña para acceder a tu usuario.</p>
+            <p className="font-bold text-2xl break-words">Ingresa tu contraseña</p>
+            <p className="break-words">Ingresa tu contraseña para acceder a tu usuario.</p>
             <PasswordInput
                 label="Contraseña"
                 placeholder="Ingresa tu contraseña"

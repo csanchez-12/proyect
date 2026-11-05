@@ -242,7 +242,7 @@ function App() {
 
   return (
     <div className="bg-linear-to-b from-primary to-primary-dark flex items-center flex-col relative">
-      <div className="h-[75vh] flex flex-col items-center">
+      <div className="min-h-[75vh] flex flex-col items-center">
         <img src={Logo} alt="" className="brightness-0 invert my-5 " />
         <img className="md:w-[50%] w-[70%] rounded-3xl" src={Image} alt="" />
         <div className="text-left md:w-[60%] mt-5 px-5">

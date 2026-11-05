@@ -57,6 +57,20 @@
   }
 }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img, video, svg, canvas {
+  max-width: 100%;
+  height: auto;
+}
+
 #root {
   max-width: 100%;
   margin: 0 auto;
@@ -70,4 +84,24 @@
 
 body {
   margin: 0;
+  overflow-x: hidden;
+}
+
+/* Evitar desbordamientos de texto al escalar la fuente */
+p, h1, h2, h3, h4, h5, h6, span, a, li, label, button, input, textarea {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+  line-height: 1.5;
+}
+
+div {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Flex children can shrink to avoid overflow */
+.flex > *, .grid > * {
+  min-width: 0;
 }

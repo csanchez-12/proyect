@@ -92,19 +92,19 @@ export default function OTPPage({
     const isComplete = /^\d{6}$/.test(otp);
 
     return (
-        <div className="relative text-left h-dvh">
-            <p className="text-2xl font-bold">
+        <div className="relative text-left min-h-dvh min-w-0 overflow-y-auto overflow-x-hidden pb-24 px-1">
+            <p className="text-2xl font-bold break-words">
                 Ingresa tu código
             </p>
 
-            <p className="text-gray-400">
+            <p className="text-gray-400 break-words">
                 Te enviamos tu código de confirmación por{" "}
                 <span className="font-bold">WhatsApp</span>
                 {" "}al celular registrado con la cédula{" "}
-                <span className="font-bold">{identification}</span>.
+                <span className="font-bold break-all">{identification}</span>.
             </p>
 
-            <div className="flex justify-center gap-3 mt-8">
+            <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mt-8">
                 {Array.from({ length: 6 }).map((_, index) => (
                     <input
                         key={index}
@@ -123,7 +123,7 @@ export default function OTPPage({
                             handleKeyDown(e, index)
                         }
                         onPaste={handlePaste}
-                        className="w-11 h-14 text-center text-xl font-bold border border-gray-300 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className="w-9 h-12 sm:w-11 sm:h-14 text-center text-lg sm:text-xl font-bold border border-gray-300 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 shrink-0"
                     />
                 ))}
             </div>

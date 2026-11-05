@@ -9,10 +9,10 @@ interface Props {
 
 export default function IdentificationForm({ onClose, onContinue, cedula, setCedula }: Props) {
     return (
-        <div className="relative text-left h-dvh">
+        <div className="relative text-left min-h-dvh min-w-0 overflow-y-auto overflow-x-hidden pb-24">
             <button onClick={onClose} className='absolute top-0 right-0 text-primary'>✕</button>
-            <p className="font-bold text-2xl">Bienvenido a Addi</p>
-            <p>Ingresa tu número de cédula para ingresar.</p>
+            <p className="font-bold text-2xl break-words">Bienvenido a Addi</p>
+            <p className="break-words">Ingresa tu número de cédula para ingresar.</p>
             <CustomInput
                 label="Cédula de ciudadanía"
                 placeholder="Ingresa el numero"

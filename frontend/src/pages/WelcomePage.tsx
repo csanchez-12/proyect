@@ -13,7 +13,7 @@ export default function WelcomePage({ onContinue }: Props) {
 
       <button
         onClick={onContinue}
-        className="bg-primary mx-5 w-full rounded-full py-3 text-white font-bold cursor-pointer hover:bg-primary-dark mt-3 absolute bottom-10 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
+        className="bg-primary left-5 right-5 w-auto rounded-full py-3 text-white font-bold cursor-pointer hover:bg-primary-dark mt-3 absolute bottom-10 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
       >
         Continuar
       </button>

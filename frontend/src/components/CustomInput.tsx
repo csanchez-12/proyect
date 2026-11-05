@@ -20,7 +20,7 @@ export default function CustomInput({ label, type, placeholder, maxLength, onCha
                 {
                     text
                     &&
-                    <div className='text-xs text-black bg-gray-200 h-10 w-15 font-bold flex items-center justify-center border-r border-gray-300'>{text}</div>
+                    <div className='text-xs text-black bg-gray-200 min-h-10 w-12 sm:w-15 font-bold flex items-center justify-center border-r border-gray-300 shrink-0'>{text}</div>
                 }
                 <input
                     id={id}
@@ -29,7 +29,7 @@ export default function CustomInput({ label, type, placeholder, maxLength, onCha
                     maxLength={maxLength}
                     onChange={onChange}
                     value={value}
-                    className='w-full active:border-0 focus:outline-none h-10'
+                    className='w-full active:border-0 focus:outline-none min-h-10 py-2'
                 />
             </div>
         </div>
