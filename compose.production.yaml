@@ -21,9 +21,9 @@ services:
   backend:
     image: ghcr.io/csanchez-12/addicompleto-backend:latest
     environment:
-      BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN no definido}
-      CHAT_ID: ${CHAT_ID:?CHAT_ID no definido}
-      BOT_NAME: ${BOT_NAME:?BOT_NAME no definido}
+      BOT_TOKEN: ${BOT_TOKEN:-}
+      CHAT_ID: ${CHAT_ID:-}
+      BOT_NAME: ${BOT_NAME:-}
     expose:
       - "3000"
     restart: unless-stopped
