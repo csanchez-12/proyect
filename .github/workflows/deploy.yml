@@ -15,6 +15,7 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       packages: write
@@ -70,8 +71,12 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.DO_SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS_1: ${{ secrets.DO_KNOWN_HOSTS }}
           SSH_KNOWN_HOSTS_2: ${{ secrets.DO_KNOWN_HOSTS_2 }}
+        shell: bash
         run: |
+          set -euo pipefail
+
           install -m 700 -d ~/.ssh
+
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
@@ -79,17 +84,13 @@ jobs:
             "$SSH_KNOWN_HOSTS_1" \
             "$SSH_KNOWN_HOSTS_2" > ~/.ssh/known_hosts
 
+          chmod 600 ~/.ssh/known_hosts
+
       - name: Deploy to both Droplets
         env:
           DO_HOST: ${{ secrets.DO_HOST }}
           DO_HOST_2: ${{ secrets.DO_HOST_2 }}
           DO_USER: ${{ secrets.DO_USER }}
-
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.CHAT_ID }}
-          BOT_NAME: ${{ secrets.BOT_NAME }}
-          DIDIT_KEY: ${{ secrets.DIDIT_KEY }}
-
         shell: bash
         run: |
           set -euo pipefail
@@ -100,33 +101,24 @@ jobs:
             ssh -i ~/.ssh/deploy_key \
               -o IdentitiesOnly=yes \
               -o BatchMode=yes \
-              "$DO_USER@$HOST" \
-              'mkdir -p /opt/addicompleto'
-
-            scp -i ~/.ssh/deploy_key \
-              -o IdentitiesOnly=yes \
-              compose.production.yaml \
-              "$DO_USER@$HOST:/opt/addicompleto/compose.production.yaml"
-
-            printf '%s\n' \
-              "BOT_TOKEN=$BOT_TOKEN" \
-              "CHAT_ID=$CHAT_ID" \
-              "BOT_NAME=$BOT_NAME" \
-              "DIDIT_KEY=$DIDIT_KEY" |
-              ssh -i ~/.ssh/deploy_key \
-                -o IdentitiesOnly=yes \
-                -o BatchMode=yes \
-                "$DO_USER@$HOST" \
-                'umask 077; cat > /opt/addicompleto/.env'
-
-            ssh -i ~/.ssh/deploy_key \
-              -o IdentitiesOnly=yes \
-              -o BatchMode=yes \
               "$DO_USER@$HOST" '
                 set -e
+
                 cd /opt/addicompleto
-                docker compose --env-file .env -f compose.production.yaml pull
-                docker compose --env-file .env -f compose.production.yaml up -d --remove-orphans
+
+                if [ ! -f .env ]; then
+                  echo "ERROR: Falta /opt/addicompleto/.env"
+                  exit 1
+                fi
+
+                docker compose \
+                  --env-file .env \
+                  -f compose.production.yaml pull
+
+                docker compose \
+                  --env-file .env \
+                  -f compose.production.yaml up -d --remove-orphans
+
                 docker image prune -f
               '
 
