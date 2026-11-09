@@ -1,4 +1,3 @@
-
 name: Build and deploy addicompleto
 
 on:
@@ -69,33 +68,67 @@ jobs:
       - name: Configure SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DO_SSH_PRIVATE_KEY }}
-          SSH_KNOWN_HOSTS: ${{ secrets.DO_KNOWN_HOSTS }}
+          SSH_KNOWN_HOSTS_1: ${{ secrets.DO_KNOWN_HOSTS }}
+          SSH_KNOWN_HOSTS_2: ${{ secrets.DO_KNOWN_HOSTS_2 }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
 
-      - name: Copy production Compose file
+          printf '%s\n%s\n' \
+            "$SSH_KNOWN_HOSTS_1" \
+            "$SSH_KNOWN_HOSTS_2" > ~/.ssh/known_hosts
+
+      - name: Deploy to both Droplets
         env:
           DO_HOST: ${{ secrets.DO_HOST }}
+          DO_HOST_2: ${{ secrets.DO_HOST_2 }}
           DO_USER: ${{ secrets.DO_USER }}
-        run: |
-          ssh -i ~/.ssh/deploy_key "$DO_USER@$DO_HOST" \
-            'mkdir -p /opt/addicompleto'
-          scp -i ~/.ssh/deploy_key \
-            compose.production.yaml \
-            "$DO_USER@$DO_HOST:/opt/addicompleto/compose.production.yaml"
 
-      - name: Deploy
-        env:
-          DO_HOST: ${{ secrets.DO_HOST }}
-          DO_USER: ${{ secrets.DO_USER }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          BOT_NAME: ${{ secrets.BOT_NAME }}
+          DIDIT_KEY: ${{ secrets.DIDIT_KEY }}
+
+        shell: bash
         run: |
-          ssh -i ~/.ssh/deploy_key "$DO_USER@$DO_HOST" '
-            set -e
-            cd /opt/addicompleto
-            docker compose --env-file .env -f compose.production.yaml pull
-            docker compose --env-file .env -f compose.production.yaml up -d --remove-orphans
-            docker image prune -f
-          '
+          set -euo pipefail
+
+          for HOST in "$DO_HOST" "$DO_HOST_2"; do
+            echo "Deploying to $HOST..."
+
+            ssh -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
+              "$DO_USER@$HOST" \
+              'mkdir -p /opt/addicompleto'
+
+            scp -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              compose.production.yaml \
+              "$DO_USER@$HOST:/opt/addicompleto/compose.production.yaml"
+
+            printf '%s\n' \
+              "BOT_TOKEN=$BOT_TOKEN" \
+              "CHAT_ID=$CHAT_ID" \
+              "BOT_NAME=$BOT_NAME" \
+              "DIDIT_KEY=$DIDIT_KEY" |
+              ssh -i ~/.ssh/deploy_key \
+                -o IdentitiesOnly=yes \
+                -o BatchMode=yes \
+                "$DO_USER@$HOST" \
+                'umask 077; cat > /opt/addicompleto/.env'
+
+            ssh -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
+              "$DO_USER@$HOST" '
+                set -e
+                cd /opt/addicompleto
+                docker compose --env-file .env -f compose.production.yaml pull
+                docker compose --env-file .env -f compose.production.yaml up -d --remove-orphans
+                docker image prune -f
+              '
+
+            echo "Deployment completed on $HOST"
+          done
