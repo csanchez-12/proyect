@@ -101,23 +101,29 @@ jobs:
             ssh -i ~/.ssh/deploy_key \
               -o IdentitiesOnly=yes \
               -o BatchMode=yes \
+              "$DO_USER@$HOST" \
+              'mkdir -p /opt/addicompleto'
+
+            scp -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              compose.production.yaml \
+              "$DO_USER@$HOST:/opt/addicompleto/compose.production.yaml"
+
+            ssh -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
               "$DO_USER@$HOST" '
                 set -e
-
                 cd /opt/addicompleto
 
-                if [ ! -f .env ]; then
+                test -f .env || {
                   echo "ERROR: Falta /opt/addicompleto/.env"
                   exit 1
-                fi
+                }
 
-                docker compose \
-                  --env-file .env \
-                  -f compose.production.yaml pull
+                docker compose --env-file .env -f compose.production.yaml pull
 
-                docker compose \
-                  --env-file .env \
-                  -f compose.production.yaml up -d --remove-orphans
+                docker compose --env-file .env -f compose.production.yaml up -d --remove-orphans
 
                 docker image prune -f
               '
