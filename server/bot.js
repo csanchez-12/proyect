@@ -27,16 +27,24 @@ bot.command("menu", async (ctx) => {
   await ctx.reply("<b>Menu 1</b>", { parse_mode: "HTML" });
 });
 
-bot.on("message", (ctx) => {
+bot.on("message", async (ctx) => {
   const msgText = ctx.message.text || "(sticker, media, etc.)";
   console.log(`${ctx.from?.first_name} escribió: ${msgText}`);
 
-  if (screaming && ctx.message.text) {
-    ctx.reply(ctx.message.text.toUpperCase(), {
-      entities: ctx.message.entities,
+  try {
+    if (screaming && ctx.message.text) {
+      await ctx.reply(ctx.message.text.toUpperCase(), {
+        entities: ctx.message.entities,
+      });
+    } else {
+      await ctx.copyMessage(ctx.message.chat.id);
+    }
+  } catch (error) {
+    console.error("Error procesando mensaje de Telegram:", {
+      chatId: ctx.chat.id,
+      messageId: ctx.message.message_id,
+      error: error.description || error.message,
     });
-  } else {
-    ctx.copyMessage(ctx.message.chat.id);
   }
 });
 
