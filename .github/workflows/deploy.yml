@@ -170,6 +170,9 @@ jobs:
 
                 docker compose --env-file .env -f compose.production.yaml up -d --remove-orphans
 
+                docker exec addicompleto-frontend-1 nginx -t
+                docker exec addicompleto-frontend-1 nginx -s reload
+
                 docker image prune -f
               '
 
