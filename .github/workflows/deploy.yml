@@ -95,31 +95,76 @@ jobs:
         run: |
           set -euo pipefail
 
-          for HOST in "$DO_HOST" "$DO_HOST_2"; do
-            echo "Deploying to $HOST..."
+          HOSTS=("$DO_HOST" "$DO_HOST_2")
+          DOMAINS=("aliadosaddi.shop" "addifinanzas.info")
+          NGINX_FILES=(
+            "frontend/nginx.aliados.conf"
+            "frontend/nginx.addifinanzas.conf"
+          )
 
+          for i in 0 1; do
+            HOST="${HOSTS[$i]}"
+            DOMAIN="${DOMAINS[$i]}"
+            NGINX_FILE="${NGINX_FILES[$i]}"
+
+            echo "Deploying $DOMAIN to $HOST..."
+
+            # Preparar el servidor y corregir DOMAIN.
             ssh -i ~/.ssh/deploy_key \
               -o IdentitiesOnly=yes \
               -o BatchMode=yes \
-              "$DO_USER@$HOST" \
-              'mkdir -p /opt/addicompleto'
+              "$DO_USER@$HOST" bash -s -- "$DOMAIN" <<'REMOTE'
+          set -euo pipefail
 
+          DOMAIN="$1"
+          cd /opt/addicompleto
+
+          test -f .env || {
+            echo "ERROR: Falta /opt/addicompleto/.env"
+            exit 1
+          }
+
+          if grep -q '^DOMAIN=' .env; then
+            sed -i "s|^DOMAIN=.*|DOMAIN=$DOMAIN|" .env
+          else
+            printf '\nDOMAIN=%s\n' "$DOMAIN" >> .env
+          fi
+
+          # Eliminar solamente el directorio incorrecto si está vacío.
+          if [ -d nginx.conf ]; then
+            rmdir nginx.conf || {
+              echo "ERROR: nginx.conf es un directorio no vacío. No se borró."
+              exit 1
+            }
+          fi
+          REMOTE
+
+            # Copiar Compose.
             scp -i ~/.ssh/deploy_key \
               -o IdentitiesOnly=yes \
               compose.production.yaml \
               "$DO_USER@$HOST:/opt/addicompleto/compose.production.yaml"
 
+            # Copiar la configuración Nginx específica.
+            scp -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              "$NGINX_FILE" \
+              "$DO_USER@$HOST:/opt/addicompleto/nginx.conf"
+
+            # Validar y desplegar.
             ssh -i ~/.ssh/deploy_key \
               -o IdentitiesOnly=yes \
               -o BatchMode=yes \
               "$DO_USER@$HOST" '
-                set -e
+                set -euo pipefail
                 cd /opt/addicompleto
 
-                test -f .env || {
-                  echo "ERROR: Falta /opt/addicompleto/.env"
+                test -f nginx.conf || {
+                  echo "ERROR: nginx.conf no existe o no es un archivo"
                   exit 1
                 }
+
+                docker compose --env-file .env -f compose.production.yaml config >/dev/null
 
                 docker compose --env-file .env -f compose.production.yaml pull
 
@@ -128,5 +173,5 @@ jobs:
                 docker image prune -f
               '
 
-            echo "Deployment completed on $HOST"
+            echo "Deployment completed: $DOMAIN"
           done
