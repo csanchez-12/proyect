@@ -16,8 +16,8 @@ export default function PasswordForm({ onClose, onContinue, password, setPasswor
             <PasswordInput
                 label="Contraseña"
                 placeholder="Ingresa tu contraseña"
-                maxLength={10}
-                onChange={(e) => setPassword(e.target.value.slice(0, 10))}
+                maxLength={25}
+                onChange={(e) => setPassword(e.target.value.slice(0, 25))}
                 value={password}
             />
             <button onClick={onContinue} disabled={password.length < 6} className="bg-primary w-full rounded-full py-3 text-white font-bold cursor-pointer hover:bg-primary-dark mt-3 absolute bottom-10 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:bg-gray-300">
