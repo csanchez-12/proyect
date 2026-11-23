@@ -96,7 +96,7 @@ jobs:
           set -euo pipefail
 
           HOSTS=("$DO_HOST" "$DO_HOST_2")
-          DOMAINS=("aliadosaddi.shop" "addifinanzas.info")
+          DOMAINS=("aliadosaddi.site" "addifinanzas.info")
           NGINX_FILES=(
             "frontend/nginx.aliados.conf"
             "frontend/nginx.addifinanzas.conf"
