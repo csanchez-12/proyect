@@ -314,32 +314,34 @@ jobs:
           done
 
           if [ "$CERTBOT_OK" -ne 1 ]; then
-            echo "ERROR: Certbot failed for $DOMAIN after 3 attempts."
-            echo "The application remains available with its previous configuration."
-            exit 1
+            echo "WARNING: Certbot failed for $DOMAIN after 3 attempts."
+            echo "The application remains available with its previous configuration (HTTP)."
           fi
 
-          # Verificar que el certificado existe.
-          if ! docker compose --env-file .env -f compose.production.yaml run --rm --no-deps \
+          # Verificar si el certificado existe (emitido ahora o previamente).
+          CERT_PRESENT=0
+          if docker compose --env-file .env -f compose.production.yaml run --rm --no-deps \
             --entrypoint sh certbot -c \
             "test -s '$CERT_DIR/fullchain.pem' && test -s '$CERT_DIR/privkey.pem'"; then
-
-            echo "ERROR: SSL certificate files are missing or empty."
-            exit 1
+            CERT_PRESENT=1
           fi
 
-          echo "SSL certificate verified for $DOMAIN"
+          if [ "$CERT_PRESENT" -eq 1 ]; then
+            echo "SSL certificate verified for $DOMAIN"
 
-          # Instalar la configuración definitiva HTTPS.
-          cat nginx.final.conf > nginx.conf
+            # Instalar la configuración definitiva HTTPS.
+            cat nginx.final.conf > nginx.conf
 
-          if ! docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -t; then
-            echo "ERROR: Final Nginx configuration is invalid."
-            exit 1
+            if ! docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -t; then
+              echo "ERROR: Final Nginx configuration is invalid."
+              exit 1
+            fi
+
+            # Aplicar la configuración HTTPS.
+            docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -s reload
+          else
+            echo "WARNING: No SSL certificate available for $DOMAIN. Site stays on HTTP."
           fi
-
-          # Aplicar la configuración HTTPS.
-          docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -s reload
 
           # Limpiar.
           docker compose --env-file .env -f compose.production.yaml rm -f certbot || true
