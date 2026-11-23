@@ -151,6 +151,14 @@ jobs:
 
           echo "Checking server configuration..."
 
+          # Abrir puertos en UFW.
+          if command -v ufw >/dev/null 2>&1; then
+            ufw allow 22/tcp || true
+            ufw allow 80/tcp || true
+            ufw allow 443/tcp || true
+            ufw --force enable || true
+          fi
+
           if [ ! -f .env ]; then
             echo "ERROR: No existe /opt/addicompleto/.env"
             exit 1
