@@ -132,6 +132,12 @@ jobs:
             echo "Deploying $DOMAIN to $HOST"
             echo "========================================"
 
+            # Asegurar directorio remoto.
+            ssh -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
+              "$DO_USER@$HOST" "mkdir -p /opt/addicompleto"
+
             # Copiar Compose.
             scp -i ~/.ssh/deploy_key \
               -o IdentitiesOnly=yes \
@@ -175,26 +181,33 @@ jobs:
             printf '\nDOMAIN=%s\n' "$DOMAIN" >> .env
           fi
 
-          # Validar Compose.
+          # Validar Compose y descargar imágenes.
           docker compose --env-file .env -f compose.production.yaml config >/dev/null
-
-          # Descargar imágenes.
           docker compose --env-file .env -f compose.production.yaml pull
 
-          # Preparar configuración HTTP temporal.
-          # Esta configuración NO necesita certificados SSL.
+          # Comprobar si ya existe el certificado.
+          CERT_DIR="/etc/letsencrypt/live/$DOMAIN"
+          CERT_EXISTS=0
 
-          if [ -d nginx.conf ]; then
-            rmdir nginx.conf || {
-              echo "ERROR: nginx.conf es un directorio no vacío"
-              exit 1
-            }
+          if docker compose --env-file .env -f compose.production.yaml run --rm --no-deps \
+            --entrypoint sh certbot -c \
+            "test -s '$CERT_DIR/fullchain.pem' && test -s '$CERT_DIR/privkey.pem'"; then
+            CERT_EXISTS=1
+            echo "Existing certificate found for $DOMAIN"
           fi
 
-          cat > nginx.conf <<'NGINX'
+          # Si no hay certificado, utilizar HTTP sirviendo la aplicación.
+          # No se sustituye el sitio por una página ficticia.
+          if [ "$CERT_EXISTS" -eq 0 ]; then
+            echo "No certificate found. Preparing application over HTTP."
+
+            cat > nginx.conf <<'NGINX'
           server {
               listen 80 default_server;
               server_name _;
+
+              root /usr/share/nginx/html;
+              index index.html;
 
               location ^~ /.well-known/acme-challenge/ {
                   root /var/www/certbot;
@@ -208,19 +221,53 @@ jobs:
                   return 200 "healthy";
               }
 
+              location /api/news/events/ {
+                  proxy_pass http://backend:3000/news/events/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Host $host;
+                  proxy_set_header Connection "";
+                  proxy_buffering off;
+                  proxy_cache off;
+                  proxy_read_timeout 1h;
+                  proxy_send_timeout 1h;
+              }
+
+              location /api/ {
+                  proxy_pass http://backend:3000/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+
+              location /assets/ {
+                  expires 1y;
+                  add_header Cache-Control "public, immutable";
+              }
+
+              location = /index.html {
+                  add_header Cache-Control "no-cache";
+              }
+
               location / {
-                  return 200 "ACME validation ready";
+                  try_files $uri $uri/ /index.html;
               }
           }
           NGINX
+          else
+            # Si ya existe certificado, conservar HTTPS desde el inicio.
+            cat nginx.final.conf > nginx.conf
+          fi
 
-          # Levantar backend.
+          # Levantar backend y frontend.
           docker compose --env-file .env -f compose.production.yaml up -d backend
-
-          # Levantar frontend con HTTP.
           docker compose --env-file .env -f compose.production.yaml up -d --force-recreate frontend
 
-          # Esperar a que Nginx esté disponible.
+          # Validar Nginx.
+          docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -t
+
+          # Esperar disponibilidad HTTP.
           READY=0
 
           for attempt in $(seq 1 20); do
@@ -229,32 +276,18 @@ jobs:
               READY=1
               break
             fi
-
             sleep 2
           done
 
           if [ "$READY" -ne 1 ]; then
-            echo "ERROR: Nginx temporal no respondió por HTTP"
+            echo "ERROR: Nginx no respondió."
             docker compose --env-file .env -f compose.production.yaml logs --tail 50 frontend
             exit 1
           fi
 
-          echo "HTTP is working. Preparing SSL certificate."
-
-          # Comprobar si ya existe un certificado válido.
-          CERT_DIR="/etc/letsencrypt/live/$DOMAIN"
-
-          CERT_EXISTS=0
-
-          if docker compose --env-file .env -f compose.production.yaml run --rm --no-deps \
-            --entrypoint sh certbot -c \
-            "test -s '$CERT_DIR/fullchain.pem' && test -s '$CERT_DIR/privkey.pem'"; then
-            CERT_EXISTS=1
-            echo "Existing certificate found for $DOMAIN"
-          fi
+          echo "Application is responding."
 
           # Emitir o renovar el certificado.
-          # Si falla, el servidor conserva HTTP temporal.
           if ! docker compose --env-file .env -f compose.production.yaml run --rm certbot \
             certonly \
             --webroot \
@@ -267,12 +300,12 @@ jobs:
             --agree-tos \
             --keep-until-expiring; then
 
-            echo "ERROR: Certbot failed for $DOMAIN"
-            echo "HTTP remains available, HTTPS was not activated."
+            echo "ERROR: Certbot failed for $DOMAIN."
+            echo "The application remains available with its previous configuration."
             exit 1
           fi
 
-          # Verificar los archivos del certificado.
+          # Verificar que el certificado existe.
           if ! docker compose --env-file .env -f compose.production.yaml run --rm --no-deps \
             --entrypoint sh certbot -c \
             "test -s '$CERT_DIR/fullchain.pem' && test -s '$CERT_DIR/privkey.pem'"; then
@@ -283,41 +316,19 @@ jobs:
 
           echo "SSL certificate verified for $DOMAIN"
 
-          # Activar configuración Nginx definitiva.
+          # Instalar la configuración definitiva HTTPS.
           cat nginx.final.conf > nginx.conf
 
-          # Validar la configuración antes de recargar.
           if ! docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -t; then
-            echo "ERROR: Nginx configuration validation failed."
-
-            # Restaurar HTTP temporal para evitar dejar Nginx sin arrancar.
-            cat > nginx.conf <<'NGINX'
-          server {
-              listen 80 default_server;
-              server_name _;
-
-              location ^~ /.well-known/acme-challenge/ {
-                  root /var/www/certbot;
-                  default_type text/plain;
-                  try_files $uri =404;
-              }
-
-              location / {
-                  return 200 "ACME validation ready";
-              }
-          }
-          NGINX
-
+            echo "ERROR: Final Nginx configuration is invalid."
             exit 1
           fi
 
-          # Aplicar HTTPS.
+          # Aplicar la configuración HTTPS.
           docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -s reload
 
-          # Eliminar contenedor Certbot antiguo, si existe.
+          # Limpiar.
           docker compose --env-file .env -f compose.production.yaml rm -f certbot || true
-
-          # Limpiar imágenes no utilizadas.
           docker image prune -f
 
           echo "Deployment completed successfully: $DOMAIN"
