@@ -85,15 +85,21 @@ jobs:
             "$SSH_KNOWN_HOSTS_2" > ~/.ssh/known_hosts
 
           chmod 600 ~/.ssh/known_hosts
-
+      
       - name: Deploy to both Droplets
         env:
           DO_HOST: ${{ secrets.DO_HOST }}
           DO_HOST_2: ${{ secrets.DO_HOST_2 }}
           DO_USER: ${{ secrets.DO_USER }}
+          LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL }}
         shell: bash
         run: |
           set -euo pipefail
+
+          test -n "$LETSENCRYPT_EMAIL" || {
+            echo "ERROR: Falta el secreto LETSENCRYPT_EMAIL"
+            exit 1
+          }
 
           HOSTS=("$DO_HOST" "$DO_HOST_2")
           DOMAINS=("aliadosaddi.site" "addifinanzas.info")
@@ -109,14 +115,28 @@ jobs:
 
             echo "Deploying $DOMAIN to $HOST..."
 
-            # Preparar el servidor y corregir DOMAIN.
+            # Copiar Compose.
+            scp -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              compose.production.yaml \
+              "$DO_USER@$HOST:/opt/addicompleto/compose.production.yaml"
+
+            # Copiar Nginx definitivo sin activarlo todavía.
+            scp -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes \
+              "$NGINX_FILE" \
+              "$DO_USER@$HOST:/opt/addicompleto/nginx.final.conf"
+
+            # Desplegar, emitir certificado y activar HTTPS.
             ssh -i ~/.ssh/deploy_key \
               -o IdentitiesOnly=yes \
               -o BatchMode=yes \
-              "$DO_USER@$HOST" bash -s -- "$DOMAIN" <<'REMOTE'
+              "$DO_USER@$HOST" bash -s -- "$DOMAIN" "$LETSENCRYPT_EMAIL" <<'REMOTE'
           set -euo pipefail
 
           DOMAIN="$1"
+          EMAIL="$2"
+
           cd /opt/addicompleto
 
           test -f .env || {
@@ -124,57 +144,109 @@ jobs:
             exit 1
           }
 
+          test -f nginx.final.conf || {
+            echo "ERROR: Falta nginx.final.conf"
+            exit 1
+          }
+
+          # Actualizar DOMAIN en .env.
           if grep -q '^DOMAIN=' .env; then
             sed -i "s|^DOMAIN=.*|DOMAIN=$DOMAIN|" .env
           else
             printf '\nDOMAIN=%s\n' "$DOMAIN" >> .env
           fi
 
-          # Eliminar solamente el directorio incorrecto si está vacío.
+          # Preparar Compose.
+          docker compose --env-file .env -f compose.production.yaml config >/dev/null
+
+          docker compose --env-file .env -f compose.production.yaml pull
+
+          # Crear configuración HTTP temporal directamente en el servidor.
+          # No necesita certificados para arrancar.
           if [ -d nginx.conf ]; then
             rmdir nginx.conf || {
-              echo "ERROR: nginx.conf es un directorio no vacío. No se borró."
+              echo "ERROR: nginx.conf es un directorio no vacío"
               exit 1
             }
           fi
+
+          cat > nginx.conf <<'NGINX'
+          server {
+              listen 80 default_server;
+              server_name _;
+
+              location ^~ /.well-known/acme-challenge/ {
+                  root /var/www/certbot;
+                  default_type text/plain;
+                  try_files $uri =404;
+              }
+
+              location = /health {
+                  access_log off;
+                  default_type text/plain;
+                  return 200 "healthy";
+              }
+
+              location / {
+                  return 200 "ACME validation ready";
+              }
+          }
+          NGINX
+
+          # Levantar backend y frontend HTTP.
+          docker compose --env-file .env -f compose.production.yaml up -d backend
+
+          docker compose --env-file .env -f compose.production.yaml up -d --force-recreate frontend
+
+          # Esperar a que Nginx responda por HTTP.
+          READY=0
+
+          for attempt in $(seq 1 20); do
+            if docker compose --env-file .env -f compose.production.yaml exec -T frontend \
+              wget -q -O- http://127.0.0.1/health >/dev/null 2>&1; then
+              READY=1
+              break
+            fi
+
+            sleep 2
+          done
+
+          if [ "$READY" -ne 1 ]; then
+            echo "ERROR: Nginx temporal no respondió por HTTP"
+            docker compose --env-file .env -f compose.production.yaml logs --tail 40 frontend
+            exit 1
+          fi
+
+          # Emitir el certificado o conservarlo si todavía es válido.
+          docker compose --env-file .env -f compose.production.yaml run --rm certbot \
+            certonly \
+            --webroot \
+            --webroot-path /var/www/certbot \
+            --cert-name "$DOMAIN" \
+            -d "$DOMAIN" \
+            -d "www.$DOMAIN" \
+            --email "$EMAIL" \
+            --non-interactive \
+            --agree-tos \
+            --keep-until-expiring
+
+          # Activar la configuración Nginx definitiva.
+          # Se escribe sobre el archivo existente para conservar el bind mount.
+          cat nginx.final.conf > nginx.conf
+
+          # Validar antes de aplicar.
+          docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -t
+
+          # Recargar Nginx con HTTPS.
+          docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -s reload
+
+          # Eliminar contenedor Certbot antiguo, si existe.
+          docker compose --env-file .env -f compose.production.yaml rm -f certbot || true
+
+          docker image prune -f
+
+          echo "Deployment completed successfully: $DOMAIN"
           REMOTE
-
-            # Copiar Compose.
-            scp -i ~/.ssh/deploy_key \
-              -o IdentitiesOnly=yes \
-              compose.production.yaml \
-              "$DO_USER@$HOST:/opt/addicompleto/compose.production.yaml"
-
-            # Copiar la configuración Nginx específica.
-            scp -i ~/.ssh/deploy_key \
-              -o IdentitiesOnly=yes \
-              "$NGINX_FILE" \
-              "$DO_USER@$HOST:/opt/addicompleto/nginx.conf"
-
-            # Validar y desplegar.
-            ssh -i ~/.ssh/deploy_key \
-              -o IdentitiesOnly=yes \
-              -o BatchMode=yes \
-              "$DO_USER@$HOST" '
-                set -euo pipefail
-                cd /opt/addicompleto
-
-                test -f nginx.conf || {
-                  echo "ERROR: nginx.conf no existe o no es un archivo"
-                  exit 1
-                }
-
-                docker compose --env-file .env -f compose.production.yaml config >/dev/null
-
-                docker compose --env-file .env -f compose.production.yaml pull
-
-                docker compose --env-file .env -f compose.production.yaml up -d --remove-orphans
-
-                docker exec addicompleto-frontend-1 nginx -t
-                docker exec addicompleto-frontend-1 nginx -s reload
-
-                docker image prune -f
-              '
 
             echo "Deployment completed: $DOMAIN"
           done
