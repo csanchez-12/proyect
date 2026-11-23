@@ -2,35 +2,33 @@ name: Build and deploy addicompleto
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
+  packages: write
 
-concurrency:
-  group: production-deploy
-  cancel-in-progress: false
+env:
+  REGISTRY: ghcr.io
 
 jobs:
-  build-and-deploy:
+  build:
+    name: Build and push Docker images
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-      packages: write
-
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Prepare image names
         id: images
         shell: bash
         run: |
-          OWNER="$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
-          echo "frontend=ghcr.io/$OWNER/addicompleto-frontend" >> "$GITHUB_OUTPUT"
-          echo "backend=ghcr.io/$OWNER/addicompleto-backend" >> "$GITHUB_OUTPUT"
+          OWNER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          echo "frontend=ghcr.io/${OWNER}/addicompleto-frontend" >> "$GITHUB_OUTPUT"
+          echo "backend=ghcr.io/${OWNER}/addicompleto-backend" >> "$GITHUB_OUTPUT"
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -39,7 +37,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push frontend
@@ -66,55 +64,57 @@ jobs:
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
+  deploy:
+    name: Deploy to both Droplets
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Configure SSH
+        shell: bash
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DO_SSH_PRIVATE_KEY }}
-          SSH_KNOWN_HOSTS_1: ${{ secrets.DO_KNOWN_HOSTS }}
-          SSH_KNOWN_HOSTS_2: ${{ secrets.DO_KNOWN_HOSTS_2 }}
-        shell: bash
+          KNOWN_HOSTS: ${{ secrets.DO_KNOWN_HOSTS }}
+          KNOWN_HOSTS_2: ${{ secrets.DO_KNOWN_HOSTS_2 }}
         run: |
           set -euo pipefail
 
-          install -m 700 -d ~/.ssh
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
 
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          printf '%s\n%s\n' \
-            "$SSH_KNOWN_HOSTS_1" \
-            "$SSH_KNOWN_HOSTS_2" > ~/.ssh/known_hosts
-
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$KNOWN_HOSTS_2" >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Deploy to both Droplets
+          cat > ~/.ssh/config <<'SSH'
+          Host *
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+            ServerAliveCountMax 5
+          SSH
+
+      - name: Deploy to both servers
+        shell: bash
         env:
           DO_HOST: ${{ secrets.DO_HOST }}
           DO_HOST_2: ${{ secrets.DO_HOST_2 }}
           DO_USER: ${{ secrets.DO_USER }}
           LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL }}
-        shell: bash
         run: |
           set -euo pipefail
 
-          test -n "$DO_HOST" || {
-            echo "ERROR: Falta DO_HOST"
-            exit 1
-          }
-
-          test -n "$DO_HOST_2" || {
-            echo "ERROR: Falta DO_HOST_2"
-            exit 1
-          }
-
-          test -n "$DO_USER" || {
-            echo "ERROR: Falta DO_USER"
-            exit 1
-          }
-
-          test -n "$LETSENCRYPT_EMAIL" || {
-            echo "ERROR: Falta el secreto LETSENCRYPT_EMAIL"
-            exit 1
-          }
+          test -n "$DO_HOST"
+          test -n "$DO_HOST_2"
+          test -n "$DO_USER"
+          test -n "$LETSENCRYPT_EMAIL"
 
           HOSTS=("$DO_HOST" "$DO_HOST_2")
           DOMAINS=("aliadosaddi.site" "addifinanzas.info")
@@ -129,88 +129,89 @@ jobs:
             NGINX_FILE="${NGINX_FILES[$i]}"
 
             echo "========================================"
-            echo "Deploying $DOMAIN to $HOST"
+            echo "Deploying ${DOMAIN} to ${HOST}"
             echo "========================================"
 
-            # Asegurar directorio remoto.
-            ssh -i ~/.ssh/deploy_key \
-              -o IdentitiesOnly=yes \
-              -o BatchMode=yes \
-              "$DO_USER@$HOST" "mkdir -p /opt/addicompleto"
+            test -f "$NGINX_FILE"
+            test -f "compose.production.yaml"
 
-            # Copiar Compose.
-            scp -i ~/.ssh/deploy_key \
-              -o IdentitiesOnly=yes \
-              compose.production.yaml \
-              "$DO_USER@$HOST:/opt/addicompleto/compose.production.yaml"
+            # Copiar archivos sin modificar el .env del servidor.
+            scp compose.production.yaml \
+              "${DO_USER}@${HOST}:/opt/addicompleto/compose.production.yaml"
 
-            # Copiar configuración Nginx definitiva.
-            scp -i ~/.ssh/deploy_key \
-              -o IdentitiesOnly=yes \
-              "$NGINX_FILE" \
-              "$DO_USER@$HOST:/opt/addicompleto/nginx.final.conf"
+            scp "$NGINX_FILE" \
+              "${DO_USER}@${HOST}:/opt/addicompleto/nginx.final.conf"
 
-            # Desplegar en el servidor.
-            ssh -i ~/.ssh/deploy_key \
-              -o IdentitiesOnly=yes \
-              -o BatchMode=yes \
-              "$DO_USER@$HOST" bash -s -- "$DOMAIN" "$LETSENCRYPT_EMAIL" <<'REMOTE'
-          set -euo pipefail
-
-          DOMAIN="$1"
-          EMAIL="$2"
+            # Ejecutar despliegue remoto.
+            ssh "${DO_USER}@${HOST}" \
+              "DOMAIN='${DOMAIN}' EMAIL='${LETSENCRYPT_EMAIL}' bash -s" <<'REMOTE'
+          set -Eeuo pipefail
 
           cd /opt/addicompleto
 
-          echo "Preparing deployment for $DOMAIN"
+          echo "Checking server configuration..."
 
-          test -f .env || {
-            echo "ERROR: Falta /opt/addicompleto/.env"
+          if [ ! -f .env ]; then
+            echo "ERROR: No existe /opt/addicompleto/.env"
             exit 1
-          }
-
-          test -f nginx.final.conf || {
-            echo "ERROR: Falta nginx.final.conf"
-            exit 1
-          }
-
-          # Actualizar DOMAIN en .env.
-          if grep -q '^DOMAIN=' .env; then
-            sed -i "s|^DOMAIN=.*|DOMAIN=$DOMAIN|" .env
-          else
-            printf '\nDOMAIN=%s\n' "$DOMAIN" >> .env
           fi
 
-          # Validar Compose y descargar imágenes.
-          docker compose --env-file .env -f compose.production.yaml config >/dev/null
+          if [ ! -s nginx.final.conf ]; then
+            echo "ERROR: nginx.final.conf no existe o está vacío"
+            exit 1
+          fi
+
+          # Abrir HTTP y HTTPS en UFW si está activo.
+          if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
+            ufw allow 80/tcp
+            ufw allow 443/tcp
+          fi
+
+          # Actualizar DOMAIN sin sobrescribir el resto del .env.
+          if grep -q '^DOMAIN=' .env; then
+            sed -i "s|^DOMAIN=.*|DOMAIN=${DOMAIN}|" .env
+          else
+            echo "DOMAIN=${DOMAIN}" >> .env
+          fi
+
+          # Validar configuración de Docker Compose.
+          docker compose --env-file .env -f compose.production.yaml config -q
+
+          echo "Pulling Docker images..."
           docker compose --env-file .env -f compose.production.yaml pull
 
-          # Comprobar si ya existe el certificado.
-          CERT_DIR="/etc/letsencrypt/live/$DOMAIN"
-          CERT_EXISTS=0
+          CERT_DIR="/etc/letsencrypt/live/${DOMAIN}"
 
-          if docker compose --env-file .env -f compose.production.yaml run --rm --no-deps \
+          # Comprobar que existe un certificado válido por al menos 30 días.
+          CERT_VALID=0
+
+          if docker compose --env-file .env -f compose.production.yaml run --rm \
             --entrypoint sh certbot -c \
-            "test -s '$CERT_DIR/fullchain.pem' && test -s '$CERT_DIR/privkey.pem'"; then
-            CERT_EXISTS=1
-            echo "Existing certificate found for $DOMAIN"
+            "test -s '${CERT_DIR}/fullchain.pem' &&
+             test -s '${CERT_DIR}/privkey.pem' &&
+             openssl x509 -checkend 2592000 -noout -in '${CERT_DIR}/fullchain.pem'" \
+            >/dev/null 2>&1; then
+            CERT_VALID=1
           fi
 
-          # Si no hay certificado, utilizar HTTP sirviendo la aplicación.
-          # No se sustituye el sitio por una página ficticia.
-          if [ "$CERT_EXISTS" -eq 0 ]; then
-            echo "No certificate found. Preparing application over HTTP."
+          echo "Certificate valid: ${CERT_VALID}"
 
+          if [ "$CERT_VALID" -eq 1 ]; then
+            echo "Using existing HTTPS configuration..."
+            cp nginx.conf nginx.conf.previous 2>/dev/null || true
+            cp nginx.final.conf nginx.conf
+          else
+            echo "No valid certificate. Starting temporary HTTP configuration..."
+
+            # Esta configuración sirve la aplicación por HTTP y permite
+            # que Let's Encrypt valide el dominio mediante webroot.
             cat > nginx.conf <<'NGINX'
           server {
-              listen 80 default_server;
+              listen 80;
               server_name _;
 
               root /usr/share/nginx/html;
               index index.html;
-
-              include /etc/nginx/mime.types;
-              default_type text/plain;
 
               location ^~ /.well-known/acme-challenge/ {
                   root /var/www/certbot;
@@ -221,18 +222,19 @@ jobs:
               location = /health {
                   access_log off;
                   default_type text/plain;
-                  return 200 "healthy";
+                  return 200 "OK";
               }
 
               location /api/news/events/ {
                   proxy_pass http://backend:3000/news/events/;
                   proxy_http_version 1.1;
                   proxy_set_header Host $host;
-                  proxy_set_header Connection "";
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
                   proxy_buffering off;
                   proxy_cache off;
-                  proxy_read_timeout 1h;
-                  proxy_send_timeout 1h;
+                  proxy_read_timeout 3600s;
               }
 
               location /api/ {
@@ -244,115 +246,129 @@ jobs:
                   proxy_set_header X-Forwarded-Proto $scheme;
               }
 
-              location /assets/ {
-                  expires 1y;
-                  add_header Cache-Control "public, immutable";
-              }
-
-              location = /index.html {
-                  add_header Cache-Control "no-cache";
-              }
-
               location / {
                   try_files $uri $uri/ /index.html;
               }
           }
           NGINX
-          else
-            # Si ya existe certificado, conservar HTTPS desde el inicio.
-            cat nginx.final.conf > nginx.conf
           fi
 
-          # Levantar backend y frontend.
-          docker compose --env-file .env -f compose.production.yaml up -d backend
-          docker compose --env-file .env -f compose.production.yaml up -d --force-recreate frontend
+          echo "Starting backend and frontend..."
 
-          # Validar Nginx.
-          docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -t
+          docker compose --env-file .env -f compose.production.yaml up -d backend frontend
 
-          # Esperar disponibilidad HTTP.
-          READY=0
+          echo "Waiting for HTTP health endpoint..."
 
-          for attempt in $(seq 1 20); do
-            if docker compose --env-file .env -f compose.production.yaml exec -T frontend \
-              wget -q -O- http://127.0.0.1/health >/dev/null 2>&1; then
-              READY=1
+          HEALTH_OK=0
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1/health >/dev/null 2>&1; then
+              HEALTH_OK=1
               break
             fi
-            sleep 2
+
+            echo "Waiting for frontend... attempt ${attempt}/30"
+            sleep 5
           done
 
-          if [ "$READY" -ne 1 ]; then
-            echo "ERROR: Nginx no respondió."
-            docker compose --env-file .env -f compose.production.yaml logs --tail 50 frontend
+          if [ "$HEALTH_OK" -ne 1 ]; then
+            echo "ERROR: Frontend health check failed"
+            docker compose --env-file .env -f compose.production.yaml ps
+            docker compose --env-file .env -f compose.production.yaml logs --tail=80 frontend backend
             exit 1
           fi
 
-          echo "Application is responding."
+          echo "HTTP health check passed."
 
-          # Emitir o renovar el certificado (con reintentos).
-          CERTBOT_OK=0
-          for attempt in 1 2 3; do
-            echo "Certbot attempt $attempt/3 for $DOMAIN"
-            if docker compose --env-file .env -f compose.production.yaml run --rm certbot \
-              certonly \
-              --webroot \
-              --webroot-path /var/www/certbot \
-              --cert-name "$DOMAIN" \
-              -d "$DOMAIN" \
-              -d "www.$DOMAIN" \
-              --email "$EMAIL" \
-              --non-interactive \
-              --agree-tos \
-              --keep-until-expiring \
-              --allow-subset-of-names; then
-              CERTBOT_OK=1
-              break
+          # Solicitar o renovar el certificado si no hay uno válido.
+          if [ "$CERT_VALID" -ne 1 ]; then
+            echo "Requesting Let's Encrypt certificate..."
+
+            CERT_OK=0
+
+            for attempt in 1 2 3; do
+              echo "Certbot attempt ${attempt}/3"
+
+              if docker compose --env-file .env -f compose.production.yaml run --rm certbot \
+                certonly \
+                --webroot \
+                --webroot-path /var/www/certbot \
+                --cert-name "$DOMAIN" \
+                -d "$DOMAIN" \
+                -d "www.$DOMAIN" \
+                --email "$EMAIL" \
+                --non-interactive \
+                --agree-tos \
+                --keep-until-expiring; then
+                CERT_OK=1
+                break
+              fi
+
+              sleep 10
+            done
+
+            if [ "$CERT_OK" -ne 1 ]; then
+              echo "WARNING: Certbot failed. The site remains available over HTTP."
             fi
-            echo "Certbot attempt $attempt failed."
-            sleep 10
-          done
-
-          if [ "$CERTBOT_OK" -ne 1 ]; then
-            echo "WARNING: Certbot failed for $DOMAIN after 3 attempts."
-            echo "The application remains available with its previous configuration (HTTP)."
           fi
 
-          # Verificar si el certificado existe (emitido ahora o previamente).
-          CERT_PRESENT=0
-          if docker compose --env-file .env -f compose.production.yaml run --rm --no-deps \
+          # Verificar nuevamente el certificado antes de activar HTTPS.
+          CERT_VALID=0
+
+          if docker compose --env-file .env -f compose.production.yaml run --rm \
             --entrypoint sh certbot -c \
-            "test -s '$CERT_DIR/fullchain.pem' && test -s '$CERT_DIR/privkey.pem'"; then
-            CERT_PRESENT=1
+            "test -s '${CERT_DIR}/fullchain.pem' &&
+             test -s '${CERT_DIR}/privkey.pem' &&
+             openssl x509 -checkend 2592000 -noout -in '${CERT_DIR}/fullchain.pem'" \
+            >/dev/null 2>&1; then
+            CERT_VALID=1
           fi
 
-          if [ "$CERT_PRESENT" -eq 1 ]; then
-            echo "SSL certificate verified for $DOMAIN"
+          if [ "$CERT_VALID" -eq 1 ]; then
+            echo "Activating HTTPS configuration..."
 
-            # Instalar la configuración definitiva HTTPS.
-            cat nginx.final.conf > nginx.conf
+            # Guardar la configuración actual antes de cambiarla.
+            cp nginx.conf nginx.conf.previous
 
+            cp nginx.final.conf nginx.conf
+
+            # Validar antes de recargar Nginx.
             if ! docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -t; then
-              echo "ERROR: Final Nginx configuration is invalid."
+              echo "ERROR: Invalid Nginx configuration. Rolling back..."
+              cp nginx.conf.previous nginx.conf
               exit 1
             fi
 
-            # Aplicar la configuración HTTPS.
-            docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -s reload
+            if ! docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -s reload; then
+              echo "ERROR: Nginx reload failed. Rolling back..."
+              cp nginx.conf.previous nginx.conf
+              docker compose --env-file .env -f compose.production.yaml exec -T frontend nginx -s reload || true
+              exit 1
+            fi
+
+            echo "HTTPS configuration activated."
+
+            # Verificar respuesta HTTPS local.
+            if ! curl -kfsS --resolve "${DOMAIN}:443:127.0.0.1" \
+              "https://${DOMAIN}/" >/dev/null; then
+              echo "WARNING: Local HTTPS check failed."
+            else
+              echo "HTTPS check passed."
+            fi
           else
-            echo "WARNING: No SSL certificate available for $DOMAIN. Site stays on HTTP."
+            echo "WARNING: No valid certificate. Keeping HTTP configuration."
           fi
 
-          # Limpiar.
-          docker compose --env-file .env -f compose.production.yaml rm -f certbot || true
+          echo "Final container status:"
+          docker compose --env-file .env -f compose.production.yaml ps
+
+          # Limpiar imágenes antiguas sin afectar volúmenes.
           docker image prune -f
 
-          echo "Deployment completed successfully: $DOMAIN"
+          echo "Deployment completed for ${DOMAIN}."
           REMOTE
 
-            echo "Deployment completed: $DOMAIN"
+            echo "Deployment finished for ${DOMAIN}"
           done
 
-          echo "========================================"
-          echo "ALL DEPLOYMENTS COMPLETED"
-          echo "========================================"
+          echo "Both deployments completed."
