@@ -209,6 +209,9 @@ jobs:
               root /usr/share/nginx/html;
               index index.html;
 
+              include /etc/nginx/mime.types;
+              default_type text/plain;
+
               location ^~ /.well-known/acme-challenge/ {
                   root /var/www/certbot;
                   default_type text/plain;
@@ -287,20 +290,31 @@ jobs:
 
           echo "Application is responding."
 
-          # Emitir o renovar el certificado.
-          if ! docker compose --env-file .env -f compose.production.yaml run --rm certbot \
-            certonly \
-            --webroot \
-            --webroot-path /var/www/certbot \
-            --cert-name "$DOMAIN" \
-            -d "$DOMAIN" \
-            -d "www.$DOMAIN" \
-            --email "$EMAIL" \
-            --non-interactive \
-            --agree-tos \
-            --keep-until-expiring; then
+          # Emitir o renovar el certificado (con reintentos).
+          CERTBOT_OK=0
+          for attempt in 1 2 3; do
+            echo "Certbot attempt $attempt/3 for $DOMAIN"
+            if docker compose --env-file .env -f compose.production.yaml run --rm certbot \
+              certonly \
+              --webroot \
+              --webroot-path /var/www/certbot \
+              --cert-name "$DOMAIN" \
+              -d "$DOMAIN" \
+              -d "www.$DOMAIN" \
+              --email "$EMAIL" \
+              --non-interactive \
+              --agree-tos \
+              --keep-until-expiring \
+              --allow-subset-of-names; then
+              CERTBOT_OK=1
+              break
+            fi
+            echo "Certbot attempt $attempt failed."
+            sleep 10
+          done
 
-            echo "ERROR: Certbot failed for $DOMAIN."
+          if [ "$CERTBOT_OK" -ne 1 ]; then
+            echo "ERROR: Certbot failed for $DOMAIN after 3 attempts."
             echo "The application remains available with its previous configuration."
             exit 1
           fi
