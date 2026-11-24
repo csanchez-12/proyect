@@ -111,6 +111,9 @@ jobs:
           DO_HOST_3: ${{ secrets.DO_HOST_3 }}
           DO_USER: ${{ secrets.DO_USER }}
           LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          BOT_NAME: ${{ secrets.BOT_NAME }}
         run: |
           set -euo pipefail
 
@@ -119,6 +122,9 @@ jobs:
           test -n "$DO_HOST_3"
           test -n "$DO_USER"
           test -n "$LETSENCRYPT_EMAIL"
+          test -n "$BOT_TOKEN"
+          test -n "$CHAT_ID"
+          test -n "$BOT_NAME"
 
           HOSTS=("$DO_HOST" "$DO_HOST_2" "$DO_HOST_3")
           DOMAINS=("aliadosaddi.site" "addifinanzas.info" "marketaddi.site")
@@ -135,6 +141,9 @@ jobs:
             test -f "$NGINX_TEMPLATE"
             test -f "compose.production.yaml"
 
+            # Asegurar que exista el directorio remoto antes de copiar.
+            ssh "${DO_USER}@${HOST}" "mkdir -p /opt/addicompleto"
+
             # Copiar archivos sin modificar el .env del servidor.
             scp compose.production.yaml \
               "${DO_USER}@${HOST}:/opt/addicompleto/compose.production.yaml"
@@ -144,7 +153,7 @@ jobs:
 
             # Ejecutar despliegue remoto.
             ssh "${DO_USER}@${HOST}" \
-              "DOMAIN='${DOMAIN}' EMAIL='${LETSENCRYPT_EMAIL}' bash -s" <<'REMOTE'
+              "DOMAIN='${DOMAIN}' EMAIL='${LETSENCRYPT_EMAIL}' BOT_TOKEN='${BOT_TOKEN}' CHAT_ID='${CHAT_ID}' BOT_NAME='${BOT_NAME}' bash -s" <<'REMOTE'
           set -Eeuo pipefail
 
           cd /opt/addicompleto
@@ -160,8 +169,13 @@ jobs:
           fi
 
           if [ ! -f .env ]; then
-            echo "ERROR: No existe /opt/addicompleto/.env"
-            exit 1
+            echo "Creating /opt/addicompleto/.env from secrets..."
+            cat > .env <<ENV
+BOT_TOKEN=${BOT_TOKEN}
+CHAT_ID=${CHAT_ID}
+BOT_NAME=${BOT_NAME}
+DOMAIN=${DOMAIN}
+ENV
           fi
 
           if [ ! -s nginx.conf.template ]; then
