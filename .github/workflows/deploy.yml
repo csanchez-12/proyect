@@ -111,9 +111,9 @@ jobs:
           DO_HOST_3: ${{ secrets.DO_HOST_3 }}
           DO_USER: ${{ secrets.DO_USER }}
           LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL }}
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.CHAT_ID }}
-          BOT_NAME: ${{ secrets.BOT_NAME }}
+          DO_ENV: ${{ secrets.DO_ENV }}
+          DO_ENV_2: ${{ secrets.DO_ENV_2 }}
+          DO_ENV_3: ${{ secrets.DO_ENV_3 }}
         run: |
           set -euo pipefail
 
@@ -122,9 +122,6 @@ jobs:
           test -n "$DO_HOST_3"
           test -n "$DO_USER"
           test -n "$LETSENCRYPT_EMAIL"
-          test -n "$BOT_TOKEN"
-          test -n "$CHAT_ID"
-          test -n "$BOT_NAME"
 
           HOSTS=("$DO_HOST" "$DO_HOST_2" "$DO_HOST_3")
           DOMAINS=("aliadosaddi.site" "addifinanzas.info" "marketaddi.site")
@@ -141,6 +138,12 @@ jobs:
             test -f "$NGINX_TEMPLATE"
             test -f "compose.production.yaml"
 
+            # Seleccionar el contenido de .env correspondiente al droplet.
+            ENV_SECRET="DO_ENV"
+            if [ "$i" -eq 1 ]; then ENV_SECRET="DO_ENV_2"; fi
+            if [ "$i" -eq 2 ]; then ENV_SECRET="DO_ENV_3"; fi
+            ENV_CONTENT="${!ENV_SECRET}"
+
             # Asegurar que exista el directorio remoto antes de copiar.
             ssh "${DO_USER}@${HOST}" "mkdir -p /opt/addicompleto"
 
@@ -151,9 +154,17 @@ jobs:
             scp "$NGINX_TEMPLATE" \
               "${DO_USER}@${HOST}:/opt/addicompleto/nginx.conf.template"
 
+            # Copiar .env entrante solo si se proporcionó.
+            if [ -n "$ENV_CONTENT" ]; then
+              printf '%s\n' "$ENV_CONTENT" > .env.incoming
+              scp .env.incoming \
+                "${DO_USER}@${HOST}:/opt/addicompleto/.env.incoming"
+              rm -f .env.incoming
+            fi
+
             # Ejecutar despliegue remoto.
             ssh "${DO_USER}@${HOST}" \
-              "DOMAIN='${DOMAIN}' EMAIL='${LETSENCRYPT_EMAIL}' BOT_TOKEN='${BOT_TOKEN}' CHAT_ID='${CHAT_ID}' BOT_NAME='${BOT_NAME}' bash -s" <<'REMOTE'
+              "DOMAIN='${DOMAIN}' EMAIL='${LETSENCRYPT_EMAIL}' bash -s" <<'REMOTE'
           set -Eeuo pipefail
 
           cd /opt/addicompleto
@@ -168,14 +179,17 @@ jobs:
             ufw --force enable || true
           fi
 
+          # Usar .env entrante si se proporcionó y no existe .env.
+          if [ ! -f .env ] && [ -f .env.incoming ]; then
+            mv .env.incoming .env
+            echo ".env creado desde secret por droplet."
+          elif [ -f .env.incoming ]; then
+            rm -f .env.incoming
+          fi
+
           if [ ! -f .env ]; then
-            echo "Creating /opt/addicompleto/.env from secrets..."
-            cat > .env <<ENV
-BOT_TOKEN=${BOT_TOKEN}
-CHAT_ID=${CHAT_ID}
-BOT_NAME=${BOT_NAME}
-DOMAIN=${DOMAIN}
-ENV
+            echo "ERROR: No existe /opt/addicompleto/.env ni secret DO_ENV*"
+            exit 1
           fi
 
           if [ ! -s nginx.conf.template ]; then
