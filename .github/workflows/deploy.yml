@@ -124,7 +124,7 @@ jobs:
           test -n "$LETSENCRYPT_EMAIL"
 
           HOSTS=("$DO_HOST" "$DO_HOST_2" "$DO_HOST_3")
-          DOMAINS=("aliadosaddi.site" "addifinanzas.info" "marketaddi.site")
+          DOMAINS=("aliadosaddi.site" "addifinanzas.info" "marketaddi.shop")
           NGINX_TEMPLATE="frontend/nginx.conf.template"
 
           for i in 0 1 2; do
