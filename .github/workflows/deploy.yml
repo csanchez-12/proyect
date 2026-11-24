@@ -65,7 +65,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=backend
 
   deploy:
-    name: Deploy to both Droplets
+    name: Deploy to all Droplets
     runs-on: ubuntu-latest
     needs: build
 
@@ -79,6 +79,7 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.DO_SSH_PRIVATE_KEY }}
           KNOWN_HOSTS: ${{ secrets.DO_KNOWN_HOSTS }}
           KNOWN_HOSTS_2: ${{ secrets.DO_KNOWN_HOSTS_2 }}
+          KNOWN_HOSTS_3: ${{ secrets.DO_KNOWN_HOSTS_3 }}
         run: |
           set -euo pipefail
 
@@ -90,6 +91,7 @@ jobs:
 
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           printf '%s\n' "$KNOWN_HOSTS_2" >> ~/.ssh/known_hosts
+          printf '%s\n' "$KNOWN_HOSTS_3" >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
           cat > ~/.ssh/config <<'SSH'
@@ -106,6 +108,7 @@ jobs:
         env:
           DO_HOST: ${{ secrets.DO_HOST }}
           DO_HOST_2: ${{ secrets.DO_HOST_2 }}
+          DO_HOST_3: ${{ secrets.DO_HOST_3 }}
           DO_USER: ${{ secrets.DO_USER }}
           LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL }}
         run: |
@@ -113,14 +116,15 @@ jobs:
 
           test -n "$DO_HOST"
           test -n "$DO_HOST_2"
+          test -n "$DO_HOST_3"
           test -n "$DO_USER"
           test -n "$LETSENCRYPT_EMAIL"
 
-          HOSTS=("$DO_HOST" "$DO_HOST_2")
-          DOMAINS=("aliadosaddi.site" "addifinanzas.info")
+          HOSTS=("$DO_HOST" "$DO_HOST_2" "$DO_HOST_3")
+          DOMAINS=("aliadosaddi.site" "addifinanzas.info" "marketaddi.site")
           NGINX_TEMPLATE="frontend/nginx.conf.template"
 
-          for i in 0 1; do
+          for i in 0 1 2; do
             HOST="${HOSTS[$i]}"
             DOMAIN="${DOMAINS[$i]}"
 
@@ -383,4 +387,4 @@ jobs:
             echo "Deployment finished for ${DOMAIN}"
           done
 
-          echo "Both deployments completed."
+          echo "All deployments completed."
