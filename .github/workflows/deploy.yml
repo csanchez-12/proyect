@@ -129,7 +129,7 @@ jobs:
 
           for i in 0 1 2; do
             HOST="${HOSTS[$i]}"
-            DOMAIN="${DOMAINS[$i]}"
+            DOMAIN="${DOMAINS[$i]:-${DOMAINS[0]}}"
 
             echo "========================================"
             echo "Deploying ${DOMAIN} to ${HOST}"
