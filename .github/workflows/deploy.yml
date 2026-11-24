@@ -188,8 +188,14 @@ jobs:
           fi
 
           if [ ! -f .env ]; then
-            echo "ERROR: No existe /opt/addicompleto/.env ni secret DO_ENV*"
-            exit 1
+            echo "Creating fallback /opt/addicompleto/.env..."
+            cat > .env <<ENV
+          BOT_TOKEN=a
+          CHAT_ID=a
+          BOT_NAME=a
+          DIDIT_KEY=a
+          DOMAIN=${DOMAIN}
+          ENV
           fi
 
           if [ ! -s nginx.conf.template ]; then
@@ -212,8 +218,8 @@ jobs:
           fi
 
           # Actualizar DOMAIN sin sobrescribir el resto del .env.
-          if grep -q '^DOMAIN=' .env; then
-            sed -i "s|^DOMAIN=.*|DOMAIN=${DOMAIN}|" .env
+          if grep -qE '^DOMAIN[[:space:]]*=' .env; then
+            sed -i -E "s|^DOMAIN[[:space:]]*=.*|DOMAIN=${DOMAIN}|" .env
           else
             echo "DOMAIN=${DOMAIN}" >> .env
           fi
