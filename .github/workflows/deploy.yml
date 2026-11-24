@@ -169,6 +169,11 @@ jobs:
 
           cd /opt/addicompleto
 
+          # Evitar que nginx.conf sea un directorio residual de mounts fallidos.
+          if [ -d nginx.conf ]; then
+            rm -rf nginx.conf
+          fi
+
           echo "Checking server configuration..."
 
           # Abrir puertos en UFW.
