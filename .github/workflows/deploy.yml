@@ -118,29 +118,25 @@ jobs:
 
           HOSTS=("$DO_HOST" "$DO_HOST_2")
           DOMAINS=("aliadosaddi.site" "addifinanzas.info")
-          NGINX_FILES=(
-            "frontend/nginx.aliados.conf"
-            "frontend/nginx.addifinanzas.conf"
-          )
+          NGINX_TEMPLATE="frontend/nginx.conf.template"
 
           for i in 0 1; do
             HOST="${HOSTS[$i]}"
             DOMAIN="${DOMAINS[$i]}"
-            NGINX_FILE="${NGINX_FILES[$i]}"
 
             echo "========================================"
             echo "Deploying ${DOMAIN} to ${HOST}"
             echo "========================================"
 
-            test -f "$NGINX_FILE"
+            test -f "$NGINX_TEMPLATE"
             test -f "compose.production.yaml"
 
             # Copiar archivos sin modificar el .env del servidor.
             scp compose.production.yaml \
               "${DO_USER}@${HOST}:/opt/addicompleto/compose.production.yaml"
 
-            scp "$NGINX_FILE" \
-              "${DO_USER}@${HOST}:/opt/addicompleto/nginx.final.conf"
+            scp "$NGINX_TEMPLATE" \
+              "${DO_USER}@${HOST}:/opt/addicompleto/nginx.conf.template"
 
             # Ejecutar despliegue remoto.
             ssh "${DO_USER}@${HOST}" \
@@ -163,6 +159,14 @@ jobs:
             echo "ERROR: No existe /opt/addicompleto/.env"
             exit 1
           fi
+
+          if [ ! -s nginx.conf.template ]; then
+            echo "ERROR: nginx.conf.template no existe o está vacío"
+            exit 1
+          fi
+
+          # Generar configuración final a partir de la plantilla.
+          sed "s/__DOMAIN__/${DOMAIN}/g" nginx.conf.template > nginx.final.conf
 
           if [ ! -s nginx.final.conf ]; then
             echo "ERROR: nginx.final.conf no existe o está vacío"
