@@ -123,7 +123,7 @@ jobs:
 
           HOSTS=("$DO_HOST" "$DO_HOST_2" "$DO_HOST_3")
           ENVS=("$DO_ENV" "$DO_ENV_2" "$DO_ENV_3")
-          DOMAINS=("preaprovalaliefectivo.online")
+          DOMAINS=("preaprovalaliefectivo.online" , "preapprovalmarketaddi.shop")
           NGINX_TEMPLATE="frontend/nginx.conf.template"
 
           for i in 0 1 2; do
