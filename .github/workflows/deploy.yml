@@ -167,9 +167,8 @@ jobs:
           cd /opt/addicompleto
 
           # Evitar que nginx.conf sea un directorio residual de mounts fallidos.
-          if [ -d nginx.conf ]; then
-            rm -rf nginx.conf
-          fi
+          rm -rf nginx.conf
+          touch nginx.conf
 
           echo "Checking server configuration..."
 
@@ -199,6 +198,9 @@ jobs:
           DOMAIN=${DOMAIN}
           ENV
           fi
+
+          # Normalizar .env (sin espacios alrededor de =) para docker compose.
+          sed -i -E 's/^[[:space:]]*([A-Za-z_]+)[[:space:]]*=[[:space:]]*/\1=/' .env
 
           if [ ! -s nginx.conf.template ]; then
             echo "ERROR: nginx.conf.template no existe o está vacío"
@@ -305,9 +307,20 @@ jobs:
           NGINX
           fi
 
-          echo "Starting backend and frontend..."
+          echo "Starting backend..."
+          docker compose --env-file .env -f compose.production.yaml up -d backend
 
-          docker compose --env-file .env -f compose.production.yaml up -d backend frontend
+          # Esperar a que el backend responda (Nginx resuelve el upstream al arrancar).
+          for attempt in $(seq 1 30); do
+            if docker compose --env-file .env -f compose.production.yaml exec -T backend wget -qO- http://localhost:3000/health >/dev/null 2>&1; then
+              break
+            fi
+            echo "Waiting for backend... attempt ${attempt}/30"
+            sleep 2
+          done
+
+          echo "Starting frontend..."
+          docker compose --env-file .env -f compose.production.yaml up -d frontend
 
           echo "Waiting for HTTP health endpoint..."
 
