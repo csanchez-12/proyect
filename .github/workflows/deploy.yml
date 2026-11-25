@@ -118,17 +118,17 @@ jobs:
           set -euo pipefail
 
           test -n "$DO_HOST"
-          test -n "$DO_HOST_2"
-          test -n "$DO_HOST_3"
           test -n "$DO_USER"
           test -n "$LETSENCRYPT_EMAIL"
 
           HOSTS=("$DO_HOST" "$DO_HOST_2" "$DO_HOST_3")
+          ENVS=("$DO_ENV" "$DO_ENV_2" "$DO_ENV_3")
           DOMAINS=("praprovalaliefectivo.online")
           NGINX_TEMPLATE="frontend/nginx.conf.template"
 
           for i in 0 1 2; do
             HOST="${HOSTS[$i]}"
+            [ -n "$HOST" ] || continue
             DOMAIN="${DOMAINS[$i]:-${DOMAINS[0]}}"
 
             echo "========================================"
@@ -139,10 +139,7 @@ jobs:
             test -f "compose.production.yaml"
 
             # Seleccionar el contenido de .env correspondiente al droplet.
-            ENV_SECRET="DO_ENV"
-            if [ "$i" -eq 1 ]; then ENV_SECRET="DO_ENV_2"; fi
-            if [ "$i" -eq 2 ]; then ENV_SECRET="DO_ENV_3"; fi
-            ENV_CONTENT="${!ENV_SECRET}"
+            ENV_CONTENT="${ENVS[$i]}"
 
             # Asegurar que exista el directorio remoto antes de copiar.
             ssh "${DO_USER}@${HOST}" "mkdir -p /opt/addicompleto"
